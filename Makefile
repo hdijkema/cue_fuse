@@ -7,6 +7,7 @@ bin/mp3cuefuse: elementals/libelementals.a
 	mv src/mp3cuefuse bin
 
 elementals/libelementals.a: elementals
+	(cd elementals;git pull)
 	(cd elementals;make)
 
 elementals:
