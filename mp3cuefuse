@@ -15,5 +15,6 @@ fi
 BN=`basename $0`
 DN=`dirname $0`
 
-LD_LIBRARY_PATH="$DN/mp3splt_sup/lib" mp3cuefuse_bin -m 75 "$1" "$2"
+LD_LIBRARY_PATH="$DN/mp3splt_sup/lib:$DN/mp3splt_sup/lib/libmp3splt0" mp3cuefuse_bin -m 75 "$1" "$2" -o allow_other
+
 
