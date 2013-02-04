@@ -1,0 +1,19 @@
+#!/bin/bash
+
+A=0
+if [ "$1" = "" ]; then
+  A=1
+elif [ "$2" = "" ]; then
+  A=1
+fi
+
+if [ "$A" = "1" ]; then
+  echo "usage: mp3cuefuse <source directory> <mount point>"
+  exit 1
+fi
+
+BN=`basename $0`
+DN=`dirname $0`
+
+LD_LIBRARY_PATH="$DN/mp3splt_sup/lib" mp3cuefuse_bin -m 75 "$1" "$2"
+

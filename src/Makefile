@@ -9,7 +9,7 @@ CC=cc
 CFLAGS=-c -I../elementals $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
 LDFLAGS=$(FUSE_LDFLAGS) $(MP3SPLT_LDFLAGS) -L../elementals -lelementals
 
-all: mp3cuefuse_bin ../elementals/libelementals.a
+all: mp3cuefuse ../elementals/libelementals.a
 	mv mp3cuefuse mp3cuefuse_bin
 
 mp3cuefuse: mp3cuefuse.o cue.o segmenter.o 
