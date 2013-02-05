@@ -36,6 +36,15 @@
 #include "log.h"
 #include "list.h"
 
+#define MKR(st,A) if (st.st_mode&A) { log_debug("modeadjust");st.st_mode-=A; }
+#define MK_READONLY(st) MKR(st,S_IWUSR);MKR(st,S_IWGRP);MKR(st,S_IWOTH);
+
+#define PMKR(st,A) if (st->st_mode&A) { log_debug("modeadjust");st->st_mode-=A; }
+#define PMK_READONLY(st) PMKR(st,S_IWUSR);PMKR(st,S_IWGRP);PMKR(st,S_IWOTH);
+
+//#define MK_READONLY(st) (st.st_mode&=!(S_IWUSR|S_IWGRP|S_IWOTH));
+//#define PMK_READONLY(st) (st->st_mode&=!(S_IWUSR|S_IWGRP|S_IWOTH));
+
 /***********************************************************************/
 
 static char *BASEDIR;
@@ -45,8 +54,7 @@ static int MAX_MEM_USAGE_IN_MB = 200;
 
 int usage(char *p)
 {
-	fprintf(stderr,
-		"%s [--memory|m maxMB] <cue directory> <mountpoint>\n", p);
+	fprintf(stderr, "%s [--memory|m maxMB] <cue directory> <mountpoint>\n", p);
 	return 1;
 }
 
@@ -85,26 +93,21 @@ void add_seg_entry(cue_entry_t * e, segmenter_t * s)
 		se = seglist_start_iter(SEGMENT_LIST, LIST_FIRST);
 		double count_mb = 0.0;
 		while (se != NULL) {
-			count_mb +=
-			    segmenter_size(se->segment) / (1024.0 * 1024.0);
+			count_mb += segmenter_size(se->segment) / (1024.0 * 1024.0);
 			se = seglist_next_iter(SEGMENT_LIST);
 		}
-		log_debug
-		    ("drop last ones as long we're above our memory limit");
+		log_debug("drop last ones as long we're above our memory limit");
 		int n = seglist_count(SEGMENT_LIST);
 		int k = 0;
 		while (((int)count_mb) > MAX_MEM_USAGE_IN_MB && k < 5) {
 			se = seglist_start_iter(SEGMENT_LIST, LIST_LAST);
 			if (se != NULL) {
 				if (segmenter_stream(se->segment) == NULL) {
-					count_mb -=
-					    segmenter_size(se->segment) /
-					    (1024.0 * 1024.0);
+					count_mb -= segmenter_size(se->segment) / (1024.0 * 1024.0);
 					seglist_drop_iter(SEGMENT_LIST);
 					k = 0;
 				} else {
-					seglist_move_iter(SEGMENT_LIST,
-							  LIST_FIRST);
+					seglist_move_iter(SEGMENT_LIST, LIST_FIRST);
 					k += 1;
 				}
 			} else {
@@ -149,8 +152,7 @@ typedef struct {
 	int open_count;
 } data_entry_t;
 
-static data_entry_t *data_entry_new(const char *path, cue_entry_t * entry,
-				    struct stat *st)
+static data_entry_t *data_entry_new(const char *path, cue_entry_t * entry, struct stat *st)
 {
 	data_entry_t *e = (data_entry_t *) malloc(sizeof(data_entry_t));
 	e->path = strdup(path);
@@ -281,9 +283,9 @@ static char *stripExt(const char *_path, const char *ext)
 static char *isCueFile(const char *full_path)
 {
 	char *fp = (char *)malloc(strlen(full_path) + strlen(".cue") + 1);
-	char *cues[] =
-	    { ".cue", ".Cue", ".cUe", ".cuE", ".CUe", ".CuE", ".cUE", ".CUE",
-	 NULL };
+	char *cues[] = { ".cue", ".Cue", ".cUe", ".cuE", ".CUe", ".CuE", ".cUE", ".CUE",
+		NULL
+	};
 	int i;
 
 	for (i = 0; cues[i] != NULL; i++) {
@@ -322,9 +324,7 @@ static segmenter_t *create_segment(cue_entry_t * e)
 				  cue_entry_composer(e),
 				  cue_genre(sheet),
 				  year,
-				  cue_entry_piece(e),
-				  cue_entry_begin_offset_in_ms(e),
-				  cue_entry_end_offset_in_ms(e)
+				  cue_entry_piece(e), cue_entry_begin_offset_in_ms(e), cue_entry_end_offset_in_ms(e)
 		    );
 		segmenter_create(s);
 		add_seg_entry(e, s);
@@ -355,6 +355,7 @@ static cue_t *mp3cue_readcue_in_btree(const char *path)
 	cue_t *cue = cue_new(cuefile);
 	struct stat st;
 	stat(cuefile, &st);
+	MK_READONLY(st);
 	if (cue != NULL && cue_valid(cue)) {
 		int added = 0;
 		int i, N;
@@ -383,8 +384,7 @@ static cue_t *mp3cue_readcue_in_btree(const char *path)
 	return cue;
 }
 
-static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler,
-			  off_t offset, struct fuse_file_info *fi)
+static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
 	log_debug2("enter with %s", path);
 	cue_t *cue = mp3cue_readcue_in_btree(path);
@@ -394,7 +394,7 @@ static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	struct stat st;
 	stat(cuefile, &st);
-
+	MK_READONLY(st);
 	if (cue != NULL && cue_valid(cue)) {
 		int i, N;
 		for (i = 0, N = cue_count(cue); i < N; i++) {
@@ -426,6 +426,7 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
 	if (cue != NULL) {
 		log_debug2("mp3cue_getattr cue=%s", cue);
 		int ret = stat(cue, stbuf);
+		PMK_READONLY(stbuf);
 		stbuf->st_mode -= S_IFREG;
 		stbuf->st_mode += S_IFDIR;
 		free(fullpath);
@@ -439,21 +440,20 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
 			segmenter_t *s = create_segment(d->entry);
 			d->st->st_size = segmenter_size(s);
 			log_debug3("for filename %s, size=%d",
-				   cue_audio_file(cue_entry_sheet(d->entry)),
-				   (int)segmenter_size(s));
+				   cue_audio_file(cue_entry_sheet(d->entry)), (int)segmenter_size(s));
 			memcpy(stbuf, d->st, sizeof(struct stat));
 			free(fullpath);
 			return 0;
 		} else {
 			int ret = stat(fullpath, stbuf);
+			PMK_READONLY(stbuf);
 			free(fullpath);
 			return ret;
 		}
 	}
 }
 
-static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-			  off_t offset, struct fuse_file_info *fi)
+static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
 	log_debug2("mp3cue_readdir %s", path);
 
@@ -466,11 +466,13 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	if (cue != NULL) {
 		log_debug2("mp3cue_readdir iscuefile %s", cue);
 		free(cue);
+		free(fullpath);
 		return mp3cue_readcue(path, buf, filler, offset, fi);
 	}
 
 	DIR *dh = opendir(fullpath);
 	if (dh == NULL) {
+		log_debug2("opendir %s returns NULL!", fullpath);
 		free(fullpath);
 		return errno;
 	} else {
@@ -482,29 +484,23 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				log_debug2("pf=%s", pf);
 				struct stat st;
 				if (pf == NULL) {
+					closedir(dh);
 					return ENOMEM;
 				} else {
 					int r = stat(pf, &st);
+					MK_READONLY(st);
 					switch (st.st_mode & S_IFMT) {
 					case S_IFREG:{
 							if (isCue(pf)) {
-								char *dr =
-								    stripExt
-								    (de->d_name,
-								     ".cue");
+								char *dr = stripExt(de->d_name, ".cue");
 								if (dr == NULL) {
-									return
-									    ENOMEM;
+									closedir(dh);
+									return ENOMEM;
 								}
-								st.st_mode &=
-								    !S_IFREG;
-								st.st_mode +=
-								    S_IFDIR;
-								log_debug2
-								    ("adding cue file %s",
-								     dr);
-								filler(buf, dr,
-								       &st, 0);
+								st.st_mode &= !S_IFREG;
+								st.st_mode += S_IFDIR;
+								log_debug2("adding cue file %s", dr);
+								filler(buf, dr, &st, 0);
 								free(dr);
 							}
 							break;
@@ -512,8 +508,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 					case S_IFDIR:{
 							//char *dr=make_rel_path2(path,de->d_name);
 							//if (dr==NULL) { return ENOMEM; }
-							filler(buf, de->d_name,
-							       &st, 0);
+							filler(buf, de->d_name, &st, 0);
 							//free(dr);
 							break;
 						}
@@ -528,6 +523,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		}
 		closedir(dh);
 	}
+	free(fullpath);
 
 	return 0;
 }
@@ -550,6 +546,7 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 			segmenter_t *s = create_segment(d->entry);
 			if (segmenter_stream(s) == NULL) {
 				if (segmenter_open(s) != SEGMENTER_OK) {
+					log_debug2("Cannot open segment %s", cue_entry_vfile(d->entry));
 					free(fullpath);
 					return -EPERM;
 				}
@@ -568,8 +565,7 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 	}
 }
 
-static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset,
-		       struct fuse_file_info *fi)
+static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
 	log_debug4("mp3cue_read %s %d %d", path, (int)size, (int)offset);
 	if (fi->fh == 0) {
@@ -608,6 +604,7 @@ static int mp3cue_release(const char *path, struct fuse_file_info *fi)
 			if (d->open_count <= 0) {
 				d->open_count = 0;
 				segmenter_t *s = create_segment(d->entry);
+				log_debug2("closing segment %s", cue_entry_vfile(d->entry));
 				segmenter_close(s);
 				fi->fh = 0;
 			}
@@ -637,8 +634,9 @@ extern FILE *log_handle()
 	return log;
 }
 
-inline extern int log_this_severity(int severity) {
-  return severity>LOG_DEBUG;
+inline extern int log_this_severity(int severity)
+{
+	return severity > LOG_DEBUG;
 }
 
 /***********************************************************************/
@@ -664,8 +662,7 @@ int main(int argc, char *argv[])
 			char *memory = optarg;
 			MAX_MEM_USAGE_IN_MB = atoi(memory);
 			if (MAX_MEM_USAGE_IN_MB < 30) {
-				fprintf(stderr,
-					"Defaulting max memory usage to minimum of 30MB\n");
+				fprintf(stderr, "Defaulting max memory usage to minimum of 30MB\n");
 				MAX_MEM_USAGE_IN_MB = 30;
 			}
 			_memset = 1;
@@ -675,8 +672,7 @@ int main(int argc, char *argv[])
 	if (!_memset) {
 		fprintf(stderr, "Defaulting max memory usage to 200MB\n");
 	} else {
-		fprintf(stderr, "Max memory usage set to %dMB\n",
-			MAX_MEM_USAGE_IN_MB);
+		fprintf(stderr, "Max memory usage set to %dMB\n", MAX_MEM_USAGE_IN_MB);
 	}
 
 	int retval = -1;
@@ -685,9 +681,7 @@ int main(int argc, char *argv[])
 		BASEDIR = strdup(argv[optind++]);
 		if (optind < argc) {
 			int fargc;
-			char **fargv =
-			    (char **)malloc(sizeof(char *) *
-					    (argc - optind + 2));
+			char **fargv = (char **)malloc(sizeof(char *) * (argc - optind + 2));
 			int k = 1;
 			fargv[0] = argv[0];
 			while (optind < argc) {

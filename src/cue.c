@@ -153,9 +153,7 @@ static cue_entry_t *cue_entry_new(cue_t * s)
 static void addEntry(cue_t * r, cue_entry_t * entry)
 {
 	r->count += 1;
-	r->entries =
-	    (cue_entry_t **) realloc(r->entries,
-				     sizeof(cue_entry_t *) * r->count);
+	r->entries = (cue_entry_t **) realloc(r->entries, sizeof(cue_entry_t *) * r->count);
 	r->entries[r->count - 1] = entry;
 }
 
@@ -244,41 +242,29 @@ cue_t *cue_new(const char *file)
 				if (!in_tracks) {
 					if (eq(line, "performer")) {
 						free(r->album_performer);
-						r->album_performer =
-						    unquote(line, "performer");
+						r->album_performer = unquote(line, "performer");
 					} else if (eq(line, "title")) {
 						free(r->album_title);
-						r->album_title =
-						    unquote(line, "title");
+						r->album_title = unquote(line, "title");
 					} else if (eq(line, "file")) {
 						free(r->audio_file);
 						char *fl = getFilePart(line);
 						char *af = unquote(fl, "");
 						if (strlen(af) > 0) {
 							if (af[0] == '/') {
-								r->audio_file =
-								    af;
+								r->audio_file = af;
 							} else {
-								char *cf =
-								    strdup(r->
-									   cuefile);
+								char *cf = strdup(r->cuefile);
 								int ii;
-								for (ii =
-								     strlen(cf)
-								     - 1;
-								     ii >= 0
-								     && cf[ii]
-								     != '/';
-								     ii--) ;
+								for (ii = strlen(cf)
+								     - 1; ii >= 0 && cf[ii]
+								     != '/'; ii--) ;
 								if (ii >= 0) {
-									cf[ii] =
-									    '\0';
-									char *aaf = (char *)malloc(strlen(cf) + strlen(af) + strlen("/") + 1);
-									sprintf
-									    (aaf,
-									     "%s/%s",
-									     cf,
-									     af);
+									cf[ii] = '\0';
+									char *aaf =
+									    (char *)malloc(strlen(cf) + strlen(af) +
+											   strlen("/") + 1);
+									sprintf(aaf, "%s/%s", cf, af);
 									r->audio_file = aaf;
 									free(cf);
 								} else {
@@ -292,29 +278,16 @@ cue_t *cue_new(const char *file)
 					} else if (eq(line, "rem")) {
 						if (eq(&line[3], "date")) {
 							free(year);
-							year =
-							    unquote(&line[3],
-								    "date");
-						} else
-						    if (eq(&line[3], "image")) {
+							year = unquote(&line[3], "date");
+						} else if (eq(&line[3], "image")) {
 							free(image);
-							image =
-							    unquote(&line[3],
-								    "image");
-						} else
-						    if (eq
-							(&line[3],
-							 "composer")) {
+							image = unquote(&line[3], "image");
+						} else if (eq(&line[3], "composer")) {
 							free(r->album_composer);
-							r->album_performer =
-							    unquote(&line[3],
-								    "composer");
-						} else
-						    if (eq(&line[3], "genre")) {
+							r->album_performer = unquote(&line[3], "composer");
+						} else if (eq(&line[3], "genre")) {
 							free(r->genre);
-							r->genre =
-							    unquote(&line[3],
-								    "genre");
+							r->genre = unquote(&line[3], "genre");
 						}
 					} else if (eq(line, "track")) {
 						in_tracks = 1;
@@ -323,56 +296,38 @@ cue_t *cue_new(const char *file)
 
 				if (in_tracks) {
 					if (eq(line, "track")) {
-						log_debug2("track: entry=%p",
-							   entry);
+						log_debug2("track: entry=%p", entry);
 						if (entry != NULL) {
 							addEntry(r, entry);
 						}
 						entry = cue_entry_new(r);
 						entry->year = mystrdup(year);
-						entry->performer =
-						    mystrdup(r->
-							     album_performer);
-						entry->composer =
-						    mystrdup(r->album_composer);
+						entry->performer = mystrdup(r->album_performer);
+						entry->composer = mystrdup(r->album_composer);
 						entry->piece = NULL;
-						log_debug2
-						    ("track: created new entry %p",
-						     entry);
+						log_debug2("track: created new entry %p", entry);
 					} else if (eq(line, "title")) {
 						free(entry->title);
-						entry->title =
-						    unquote(line, "title");
+						entry->title = unquote(line, "title");
 					} else if (eq(line, "performer")) {
 						free(entry->performer);
-						entry->performer =
-						    unquote(line, "performer");
+						entry->performer = unquote(line, "performer");
 					} else if (eq(line, "index")) {
-						char *index =
-						    unquote(line, "index");
-						entry->begin_offset_in_ms =
-						    calculateOffset(index);
+						char *index = unquote(line, "index");
+						entry->begin_offset_in_ms = calculateOffset(index);
 						free(index);
 					} else if (eq(line, "rem")) {
 						if (eq(&line[3], "composer")) {
 							free(entry->composer);
-							entry->composer =
-							    unquote(&line[3],
-								    "composer");
-						} else
-						    if (eq(&line[3], "piece")) {
+							entry->composer = unquote(&line[3], "composer");
+						} else if (eq(&line[3], "piece")) {
 							free(entry->piece);
-							entry->piece =
-							    unquote(&line[3],
-								    "piece");
+							entry->piece = unquote(&line[3], "piece");
 						} else if (eq(&line[3], "year")) {
 							free(year);
-							year =
-							    unquote(&line[3],
-								    "year");
+							year = unquote(&line[3], "year");
 							free(entry->year);
-							entry->year =
-							    mystrdup(year);
+							entry->year = mystrdup(year);
 						}
 					}
 				}
@@ -388,13 +343,13 @@ cue_t *cue_new(const char *file)
 		{
 			int i, N;
 			for (i = 0, N = r->count; i < N - 1; i++) {
-				r->entries[i]->end_offset_in_ms =
-				    r->entries[i + 1]->begin_offset_in_ms;
+				r->entries[i]->end_offset_in_ms = r->entries[i + 1]->begin_offset_in_ms;
 				r->entries[i]->tracknr = i + 1;
 			}
 			r->entries[i]->tracknr = i + 1;
 		}
 
+    fclose(f);
 	}
 
 	return r;
@@ -529,8 +484,7 @@ const char *cue_entry_vfile(cue_entry_t * ce)
 {
 	if (ce->vfile == NULL) {
 		cue_t *c = (cue_t *) ce->sheet;
-		char *name =
-		    (char *)malloc(10 + strlen(cue_entry_title(ce)) + 4);
+		char *name = (char *)malloc(10 + strlen(cue_entry_title(ce)) + 4);
 		char *ext = getExt(cue_audio_file(c));
 		sprintf(name, "%02d - %s.%s", ce->tracknr, ce->title, ext);
 		free(ext);
@@ -541,9 +495,7 @@ const char *cue_entry_vfile(cue_entry_t * ce)
 
 char *cue_entry_alloc_id(cue_entry_t * ce)
 {
-	int l =
-	    strlen(cue_entry_vfile(ce)) +
-	    strlen(cue_audio_file(cue_entry_sheet(ce))) + 1;
+	int l = strlen(cue_entry_vfile(ce)) + strlen(cue_audio_file(cue_entry_sheet(ce))) + 1;
 	char *s = (char *)malloc(l);
 	strcpy(s, cue_entry_vfile(ce));
 	strcat(s, cue_audio_file(cue_entry_sheet(ce)));

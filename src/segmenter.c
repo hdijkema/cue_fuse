@@ -56,8 +56,7 @@ static void replace(char **s, const char *n)
 /**********************************************************************/
 
 #ifndef SEGMENT_USING_FILE
-static void mp3splt_writer(const void *ptr, size_t size, size_t nmemb,
-			   void *cb_data)
+static void mp3splt_writer(const void *ptr, size_t size, size_t nmemb, void *cb_data)
 {
 	FILE *f = (FILE *) cb_data;
 	fwrite(ptr, size, nmemb, f);
@@ -86,28 +85,25 @@ static int mp3splt(segmenter_t * S)
 	if (S->segment.end_offset_in_ms >= 0) {
 		end_offset_in_hs = S->segment.end_offset_in_ms / 10;
 	}
-
 	// Creating state
 	splt_state *state = mp3splt_new_state(NULL);
-  //log_debug("new state");
+	//log_debug("new state");
 	mp3splt_find_plugins(state);
 	//log_debug("plugins found");
 
 	// Set split path and custom name
 	mp3splt_set_path_of_split(state, "/tmp");
 	//log_debug("split path set");
-	mp3splt_set_int_option(state, SPLT_OPT_OUTPUT_FILENAMES,
-			       SPLT_OUTPUT_CUSTOM);
-  //log_debug("custom split set");
+	mp3splt_set_int_option(state, SPLT_OPT_OUTPUT_FILENAMES, SPLT_OUTPUT_CUSTOM);
+	//log_debug("custom split set");
 
 	// Set filename to split and pretend mode, for memory based splitting
 	mp3splt_set_filename_to_split(state, S->segment.filename);
 	//log_debug("filename to split set");
 #ifndef SEGMENT_USING_FILE
 	mp3splt_set_int_option(state, SPLT_OPT_PRETEND_TO_SPLIT, SPLT_TRUE);
-	mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer,
-						    (void *)f);
-  //log_debug("pretend split and write function set");
+	mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer, (void *)f);
+	//log_debug("pretend split and write function set");
 #endif
 
 	// Create splitpoints
@@ -146,16 +142,13 @@ static int mp3splt(segmenter_t * S)
 		mp3splt_tags_set(tags, SPLT_TAGS_ORIGINAL, "true", NULL);
 		//log_debug("SPLT_TAGS_ORIGINAL set");
 		mp3splt_tags_set(tags,
-         SPLT_TAGS_TITLE, title,
+				 SPLT_TAGS_TITLE, title,
 				 SPLT_TAGS_ARTIST, artist,
 				 SPLT_TAGS_ALBUM, album,
 				 SPLT_TAGS_PERFORMER, performer,
 				 SPLT_TAGS_YEAR, year,
-				 SPLT_TAGS_COMMENT, comment,
-				 SPLT_TAGS_GENRE, genre,
-				 SPLT_TAGS_TRACK, track,
-				 NULL);
-    //log_debug("tags set");
+				 SPLT_TAGS_COMMENT, comment, SPLT_TAGS_GENRE, genre, SPLT_TAGS_TRACK, track, NULL);
+		//log_debug("tags set");
 		mp3splt_append_tags(state, tags);
 		//log_debug("tag appended");
 	}
@@ -166,7 +159,7 @@ static int mp3splt(segmenter_t * S)
 	//log_debug("split done");
 	mp3splt_free_state(state);
 	//log_debug("state freeed");
-	//log_debug2("mp3splt_split: result=%d", error);
+	log_debug2("mp3splt_split: result=%d", error);
 
 #ifndef SEGMENT_USING_FILE
 	fclose(f);
@@ -243,6 +236,9 @@ int segmenter_can_segment(segmenter_t * S, const char *filename)
 
 void segmenter_destroy(segmenter_t * S)
 {
+	if (S->stream != NULL) {
+		fclose(S->stream);
+	}
 	free(S->memory_block);
 	free(S->segment.title);
 	free(S->segment.artist);
@@ -252,9 +248,6 @@ void segmenter_destroy(segmenter_t * S)
 	free(S->segment.composer);
 	free(S->segment.filename);
 	free(S->segment.genre);
-	if (S->stream != NULL) {
-		fclose(S->stream);
-	}
 	free(S);
 }
 
@@ -320,10 +313,7 @@ void segmenter_prepare(segmenter_t * S,
 		       const char *album,
 		       const char *album_artist,
 		       const char *composer,
-		       const char *genre,
-		       int year,
-		       const char *comment,
-		       int begin_offset_in_ms, int end_offset_in_ms)
+		       const char *genre, int year, const char *comment, int begin_offset_in_ms, int end_offset_in_ms)
 {
 	segment_t *seg = &S->segment;
 	replace(&seg->filename, filename);

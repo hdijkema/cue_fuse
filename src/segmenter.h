@@ -24,8 +24,7 @@
 
 typedef struct {
 	int track, year, begin_offset_in_ms, end_offset_in_ms;
-	char *title,
-	    *artist, *album, *album_artist, *composer, *comment, *genre;
+	char *title, *artist, *album, *album_artist, *composer, *comment, *genre;
 	char *filename;
 } segment_t;
 
@@ -60,10 +59,7 @@ void segmenter_prepare(segmenter_t * S,
 		       const char *album,
 		       const char *album_artist,
 		       const char *composer,
-		       const char *genre,
-		       int year,
-		       const char *comment,
-		       int begin_offset_in_ms, int end_offset_in_ms);
+		       const char *genre, int year, const char *comment, int begin_offset_in_ms, int end_offset_in_ms);
 
 int segmenter_create(segmenter_t * S);
 int segmenter_open(segmenter_t * S);
