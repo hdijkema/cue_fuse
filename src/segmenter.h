@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 typedef struct {
-	int track, 
-		 year, 
+	int track,
+		 year,
 		 begin_offset_in_ms,
 		 end_offset_in_ms;
 	char *title,
@@ -44,7 +44,7 @@ int             segmenter_can_segment(segmenter_t *S,
 									  const char *filename);
 void segmenter_prepare(segmenter_t *S,
                         const char *filename,
-						int track, 
+						int track,
                         const char *title,
                         const char *artist,
                         const char *album,
@@ -56,13 +56,13 @@ void segmenter_prepare(segmenter_t *S,
                         int begin_offset_in_ms,
                         int end_offset_in_ms
                         );
-                        
+
 int             segmenter_create(segmenter_t *S);
 int             segmenter_open(segmenter_t *S);
 size_t           segmenter_size(segmenter_t *S);
 int             segmenter_close(segmenter_t *S);
 FILE *          segmenter_stream(segmenter_t *S);
-
+int             segmenter_retcode(segmenter_t *S);
 
 
 #endif

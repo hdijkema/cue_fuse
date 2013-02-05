@@ -270,4 +270,7 @@ size_t segmenter_size(segmenter_t *S) {
 	return S->size;
 }
 
+int segmenter_retcode(segmenter_t *S) {
+    return S->last_result;
+}
 
