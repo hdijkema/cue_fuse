@@ -35,5 +35,9 @@ test_seg.o : test_seg.c
 ../elementals/libelementals.a:
 	(cd ../elementals;make)
 
+minimal: minimal.c
+	$(CC) $(CFLAGS) minimal.c 
+	$(CC) -o minimal minimal.o $(LDFLAGS)
+
 clean:
-	rm -f *.o *~ mp3cuefuse test_list test_seg
+	rm -f *.o *~ mp3cuefuse test_list test_seg minimal
