@@ -62,7 +62,7 @@ static int mp3splt(segmenter_t *S) {
     mp3splt_set_filename_to_split(state,S->segment.filename);
     //mp3splt_set_int_option(state, SPLT_OPT_OUTPUT_FILENAMES, SPLT_OUTPUT_CUSTOM);
     log_debug("setting pretend mode");
-    //mp3splt_set_int_option(state, SPLT_OPT_TAGS, SPLT_TAGS_ORIGINAL_FILE);
+    mp3splt_set_int_option(state, SPLT_OPT_TAGS, SPLT_TAGS_ORIGINAL_FILE);
     //mp3splt_set_int_option(state,SPLT_OPT_TAGS, SPLT_CURRENT_TAGS);
     mp3splt_set_int_option(state, SPLT_OPT_PRETEND_TO_SPLIT, SPLT_TRUE);
     log_debug("pretend mode set");
