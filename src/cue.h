@@ -47,6 +47,11 @@ const char *cue_genre(cue_t *cue);
 int          cue_entries(cue_t *cue);
 cue_entry_t *cue_entry(cue_t *cue,int index);
 
+
+void cue_entry_destroy(cue_entry_t *ce);    // destroys entry and removes it from cue
+                                             // if it is the last one, destroys cue
+
+
 const char *cue_entry_title(cue_entry_t *ce);
 const char *cue_entry_performer(cue_entry_t *ce);
 const char *cue_entry_composer(cue_entry_t *ce);

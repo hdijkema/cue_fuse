@@ -1,5 +1,5 @@
 #define FUSE_USE_VERSION  26
-   
+
 #include <fuse.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <stdlib.h>
-#include "btree.h"
+#include "hash.h"
 #include "cue.h"
 #include "segmenter.h"
 #include "log.h"
@@ -53,7 +53,6 @@ DECLARE_LIST(seglist,seg_entry_t);
 IMPLEMENT_LIST(seglist,seg_entry_t,seg_entry_copy,seg_entry_destroy);
 
 static list_t *SEGMENT_LIST=NULL;
-
 
 void add_seg_entry(cue_entry_t *e,segmenter_t *s) {
 	log_debug("lock segment list");
@@ -115,25 +114,18 @@ segmenter_t *find_seg_entry(cue_entry_t *e) {
 
 /***********************************************************************/
 
-static t_btree 		*DATA;
-
 typedef struct {
 	cue_entry_t 	*entry;
 	char       		*path;
 	struct stat 	*st;
+	int              open_count;
 } data_entry_t;
 
-
-int cmp_data(t_btree *tree,void *a,void *b) {
-	data_entry_t *aa=(data_entry_t *) a;
-	data_entry_t *bb=(data_entry_t *) b;
-	return strcasecmp(aa->path,bb->path);
-}
-
-data_entry_t *data_entry_new(const char *path,cue_entry_t *entry,struct stat *st) {
+static data_entry_t *data_entry_new(const char *path,cue_entry_t *entry,struct stat *st) {
 	data_entry_t *e=(data_entry_t *) malloc(sizeof(data_entry_t));
 	e->path=strdup(path);
 	e->entry=entry;
+	e->open_count=0;
 	if (st!=NULL) {
 		struct stat *stn=(struct stat *) malloc(sizeof(struct stat));
 		memcpy((void *) stn,(void *) st,sizeof(struct stat));
@@ -143,10 +135,26 @@ data_entry_t *data_entry_new(const char *path,cue_entry_t *entry,struct stat *st
 	}
 }
 
-void data_entry_destroy(data_entry_t *e) {
+static void data_entry_destroy(data_entry_t *e) {
+    log_debug2("Destroying cue entry %s",cue_entry_title(e->entry));
+    cue_entry_destroy(e->entry);
 	free(e->path);
 	free(e->st);
 }
+
+static hash_data_t data_copy(data_entry_t *e) {
+    return (hash_data_t) e;
+}
+
+static void data_destroy(hash_data_t d) {
+    data_entry_t *e=(data_entry_t *) d;
+    data_entry_destroy(e);
+}
+
+DECLARE_HASH(datahash,data_entry_t);
+IMPLEMENT_HASH(datahash,data_entry_t,data_copy,data_destroy);
+
+datahash *DATA=NULL;
 
 /***********************************************************************/
 
@@ -154,7 +162,7 @@ char * make_path(const char *path) {
 	int l=strlen(path)+strlen(BASEDIR)+1;
 	char *np=(char *) malloc(l);
 	fprintf(stderr,"np=%p\n",np);
-	if (np==NULL) { 
+	if (np==NULL) {
 		return np;
 	} else {
 		strcpy(np,BASEDIR);
@@ -173,7 +181,7 @@ char * make_rel_path2(const char *path,const char *file) {
 		return NULL;
 	} else {
 		strcpy(fp,path);
-		if (pl>0) { 
+		if (pl>0) {
 			if (fp[pl-1]!='/') {
 				strcat(fp,"/");
 			}
@@ -185,7 +193,7 @@ char * make_rel_path2(const char *path,const char *file) {
 
 char * make_path2(const char *path,const char *file) {
 	char *np=make_path(path);
-	if (np==NULL) { 
+	if (np==NULL) {
 		return np;
 	} else {
 		char *r=make_rel_path2(np,file);
@@ -202,7 +210,7 @@ static int isExt(const char *path,const char *ext) {
 			return 1;
 		} else {
 			return 0;
-		}	
+		}
 	} else {
 		return 0;
 	}
@@ -225,7 +233,7 @@ static char *stripExt(const char *_path,const char *ext) {
 		if (l>0) {
 			path[l]='\0';
 		}
-	} 
+	}
 	return path;
 }
 
@@ -233,21 +241,21 @@ static char *isCueFile(const char *full_path) {
 	char *fp=(char *) malloc(strlen(full_path)+strlen(".cue")+1);
 	char *cues[]={".cue",".Cue",".cUe",".cuE",".CUe",".CuE",".cUE",".CUE",NULL};
 	int i;
-	
+
 	for(i=0;cues[i]!=NULL;i++) {
 		sprintf(fp,"%s%s",full_path,cues[i]);
 		FILE *f=fopen(fp,"r");
-		if (f!=NULL) { 
-			fclose(f); 
+		if (f!=NULL) {
+			fclose(f);
 			return fp;
-		} 
+		}
 	}
-	
+
 	free(fp);
-	
+
 	return NULL;
 }
-  
+
 /***********************************************************************/
 
 static segmenter_t *create_segment(cue_entry_t *e) {
@@ -281,7 +289,16 @@ static segmenter_t *create_segment(cue_entry_t *e) {
 
 /***********************************************************************/
 
+static  list_data_t delist_copy(data_entry_t *e) {
+    return (list_data_t) e;
+}
 
+static void delist_destroy_entry(list_data_t e) {
+    data_entry_destroy((data_entry_t *) e);
+}
+
+DECLARE_LIST(delist,data_entry_t);
+IMPLEMENT_LIST(delist,data_entry_t,delist_copy,delist_destroy_entry);
 
 static cue_t * mp3cue_readcue_in_btree(const char *path) {
 	char *fullpath=make_path(path);
@@ -289,25 +306,33 @@ static cue_t * mp3cue_readcue_in_btree(const char *path) {
 	log_debug2("reading cuefile %s",cuefile);
 	cue_t *cue=cue_new(cuefile);
 	struct stat st;
-	stat(cuefile,&st);		
+	stat(cuefile,&st);
 	if (cue!=NULL && cue_valid(cue)) {
+	    int added=0;
 		int i,N;
+		// check if cue already exists in hash. If not, create whole cue in hash and read in again.
 		for(i=0,N=cue_count(cue);i<N;i++) {
-			cue_entry_t *entry=cue_entry(cue,i);		
+			cue_entry_t *entry=cue_entry(cue,i);
 			char *p=make_path2(path,cue_entry_vfile(entry));
 			log_debug2("p=%s",p);
 			data_entry_t *d=data_entry_new(p,entry,&st);
-			data_entry_t *f=bt_get(DATA,d);
-			if (f!=NULL) {
-				bt_remove(DATA,d);
-				data_entry_destroy(f);
-			}
-			bt_insert(DATA,d);
+			if (datahash_exists(DATA,p)) {
+                // do nothing
+			} else {
+                datahash_put(DATA,p,d);
+                added=1;
+            }
+		}
+		if (added) {
+		    free(cuefile);
+		    free(fullpath);
+		    return mp3cue_readcue_in_btree(path);
 		}
 	}
+
 	free(cuefile);
-	free(fullpath);		
-	return cue;	
+	free(fullpath);
+	return cue;
 }
 
 static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler,
@@ -315,34 +340,34 @@ static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler,
 {
 	log_debug2("enter with %s",path);
 	cue_t *cue=mp3cue_readcue_in_btree(path);
-	
+
 	char *fullpath=make_path(path);
 	char *cuefile=isCueFile(fullpath);
-	
+
 	struct stat st;
-	stat(cuefile,&st);	
-	
+	stat(cuefile,&st);
+
 	if (cue!=NULL && cue_valid(cue)) {
 		int i,N;
 		for(i=0,N=cue_count(cue);i<N;i++) {
-			cue_entry_t *entry=cue_entry(cue,i);	
-			data_entry_t *e=data_entry_new(fullpath,NULL,NULL);
-			data_entry_t *d=bt_get(DATA,e);
-			data_entry_destroy(e);
+			cue_entry_t *entry=cue_entry(cue,i);
+			data_entry_t *d=datahash_get(DATA,fullpath);
 			if (d!=NULL) {
 				filler(buf,cue_entry_vfile(entry),d->st,0);
 			} else {
 				filler(buf,cue_entry_vfile(entry),&st,0);
 			}
 		}
-	}	
-	
+	}
+
+	cue_destroy(cue);
+
 	free(cuefile);
-	free(fullpath);		
-	
+	free(fullpath);
+
 	return 0;
 }
-	
+
 
 /***********************************************************************/
 
@@ -361,9 +386,7 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
 		mp3cue_readcue_in_btree(path);
 		return ret;
 	} else {
-		data_entry_t *e=data_entry_new(fullpath,NULL,NULL);
-		data_entry_t *d=bt_get(DATA,e);
-		data_entry_destroy(e);
+		data_entry_t *d=datahash_get(DATA,fullpath);
 		log_debug2("found d=%p",d);
 		if (d!=NULL) {
 			segmenter_t *s=create_segment(d->entry);
@@ -386,7 +409,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	                       off_t offset, struct fuse_file_info *fi)
 {
 	log_debug2("mp3cue_readdir %s",path);
-	
+
 	char *fullpath=make_path(path);
 	if (fullpath==NULL) {
 		return ENOMEM;
@@ -411,7 +434,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				char *pf=make_path2(path,de->d_name);
 				log_debug2("pf=%s",pf);
 				struct stat st;
-				if (pf==NULL) { 
+				if (pf==NULL) {
 					return ENOMEM;
 				} else {
 					int r=stat(pf,&st);
@@ -462,9 +485,7 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 		free(cue);
 		return ret;
 	} else {
-		data_entry_t *e=data_entry_new(fullpath,NULL,NULL);
-		data_entry_t *d=bt_get(DATA,e);
-		data_entry_destroy(e);
+		data_entry_t *d=datahash_get(DATA,fullpath);
 		log_debug2("found d=%p",d);
 		if (d!=NULL) {
 			segmenter_t *s=create_segment(d->entry);
@@ -476,6 +497,7 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 			}
 			FILE *f=segmenter_stream(s);
 			fi->fh=fileno(f);
+			d->open_count+=1;
 			free(fullpath);
 			return 0;
 		} else {
@@ -486,18 +508,16 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 		}
 	}
 }
-  
+
 static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
-	log_debug2("mp3cue_read %s",path);
+	log_debug4("mp3cue_read %s %d %d",path,(int) size,(int) offset);
 	if (fi->fh==0) {
 		return -EIO;
 	} else {
 		char *fullpath=make_path(path);
-		data_entry_t *e=data_entry_new(fullpath,NULL,NULL);
-		data_entry_t *d=bt_get(DATA,e);
-		data_entry_destroy(e);
+		data_entry_t *d=datahash_get(DATA,fullpath);
 		log_debug2("found d=%p",d);
 		if (d!=NULL) {
 			segmenter_t *s=create_segment(d->entry);
@@ -522,13 +542,16 @@ static int mp3cue_release(const char *path,struct fuse_file_info *fi)
 		return -EIO;
 	} else {
 		char *fullpath=make_path(path);
-		data_entry_t *e=data_entry_new(fullpath,NULL,NULL);
-		data_entry_t *d=bt_get(DATA,e);
-		data_entry_destroy(e);
-		log_debug2("found d=%p",d);
+		data_entry_t *d=datahash_get(DATA,fullpath);
 		if (d!=NULL) {
-			segmenter_t *s=create_segment(d->entry);
-			segmenter_close(s);
+		    log_debug3("found d=%p, count=%d",d, d->open_count);
+		    d->open_count-=1;
+		    if (d->open_count<=0) {
+                d->open_count=0;
+                segmenter_t *s=create_segment(d->entry);
+                segmenter_close(s);
+                fi->fh=0;
+		    }
 			return 0;
 		} else {
 			return -EIO;
@@ -551,21 +574,22 @@ extern FILE *log_handle() {
 	}
 	return log;
 }
-  
+
+
 int main(int argc, char *argv[])
 {
 	// Initialize
-	DATA=bt_new(BT_FLAGS_UNIQUE,cmp_data);
+	DATA=datahash_new(100,HASH_CASE_SENSITIVE);
 	SEGMENT_LIST=seglist_new();
 
 	// Option handling
-	
+
 	int option_index;
 	struct option long_options[] = {
 			{ "memory", 1, 0, 0 },
 			{ 0, 0, 0, 0 }
 	};
-	
+
 	int c=getopt_long(argc,argv,"m:",long_options,&option_index);
 	int _memset=0;
 	if (c>=0) {
@@ -579,12 +603,14 @@ int main(int argc, char *argv[])
 			_memset=1;
 		}
 	}
-	
+
 	if (!_memset) {
 		fprintf(stderr,"Defaulting max memory usage to 200MB\n");
 	} else {
 		fprintf(stderr,"Max memory usage set to %dMB\n",MAX_MEM_USAGE_IN_MB);
 	}
+
+    int retval=-1;
 
 	if (optind < argc) {
 		BASEDIR=strdup(argv[optind++]);
@@ -596,15 +622,22 @@ int main(int argc, char *argv[])
 			while(optind<argc) {
 			  fargv[k++]=argv[optind++];
 			}
-			fargv[k]=NULL;  
+			fargv[k]=NULL;
 			fargc=k;
-			return fuse_main(fargc, fargv, &mp3cue_oper, NULL);
+            retval=fuse_main(fargc, fargv, &mp3cue_oper, NULL);
 		} else {
-			return usage(argv[0]);
+            retval=usage(argv[0]);
 		}
 	} else {
-		return usage(argv[0]);
+        retval=usage(argv[0]);
 	}
-		
+
+    // Destroy
+
+    datahash_destroy(DATA);
+    seglist_destroy(SEGMENT_LIST);
+
+    return retval;
+
 }
-  
+

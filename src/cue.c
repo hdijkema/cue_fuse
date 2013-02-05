@@ -1,4 +1,4 @@
-/* 
+/*
    This file is part of elementals.
    Copyright 2013, Hans Oesterholt <debian@oesterholt.net>
 
@@ -29,7 +29,7 @@
 #define T(a) 	(a==NULL) ? "" : a
 
 static char *mystrdup(const char *s) {
-	if (s==NULL) { 
+	if (s==NULL) {
 		return NULL;
 	} else {
 		return strdup(s);
@@ -40,7 +40,7 @@ static char *readline(FILE *f) {
 	char *line=mystrdup("");
 	char  buf[10240];
 	int   readsome=0;
-	
+
 	while(fgets(buf,10240,f)!=NULL) {
 		readsome=1;
 		{
@@ -54,7 +54,7 @@ static char *readline(FILE *f) {
 			}
 		}
 	}
-	
+
 	if (readsome) {
 		return line;
 	} else {
@@ -105,7 +105,7 @@ static char *unquote(const char *s,const char *e) {
 		free(r);
 		log_debug2("k=%s",k);
 		return k;
-	}	
+	}
 }
 
 static char *getFilePart(const char *s) {
@@ -155,14 +155,14 @@ static int calculateOffset(const char *in) {
 				if (in[i]=='\0') { return -1; }
 				i+=1;
 				const char *hs=&in[i];
-				
+
 				{
 					int m=atoi(min);
 					int s=atoi(sec);
 					int ms=atoi(hs)*10;
 					return m*60*1000+s*1000+ms;
 				}
-				
+
 			} else {
 				return -1;
 			}
@@ -170,7 +170,7 @@ static int calculateOffset(const char *in) {
 			return -1;
 		}
 	} else {
-		return -1; 
+		return -1;
 	}
 }
 
@@ -239,7 +239,7 @@ cue_t *cue_new(const char *file) {
 							}
 						} else {
 							r->audio_file=af;
-						}	
+						}
 						free(fl);
 					} else if (eq(line,"rem")) {
 						if (eq(&line[3],"date")) {
@@ -259,13 +259,13 @@ cue_t *cue_new(const char *file) {
 						in_tracks=1;
 					}
 				}
-				
+
 				if (in_tracks) {
 					if (eq(line,"track")) {
 						log_debug2("track: entry=%p",entry);
 						if (entry!=NULL) {
 							addEntry(r,entry);
-						} 
+						}
 						entry=cue_entry_new(r);
 						entry->year=mystrdup(year);
 						entry->performer=mystrdup(r->album_performer);
@@ -305,7 +305,7 @@ cue_t *cue_new(const char *file) {
 		}
 		free(year);
 		free(image);
-		
+
 		{
 			int i,N;
 			for(i=0,N=r->count;i<N-1;i++) {
@@ -314,32 +314,27 @@ cue_t *cue_new(const char *file) {
 			}
 			r->entries[i]->tracknr=i+1;
 		}
-		
+
 	}
 
 	return r;
 }
 
 void cue_destroy(cue_t *c) {
+    int i,N;
+    for(i=0,N=c->count;i<N;i++) {
+        cue_entry_destroy(c->entries[0]);
+    }
+}
+
+static void cue_destroy1(cue_t *c) {
 	free(c->audio_file);
 	free(c->album_title);
 	free(c->album_performer);
 	free(c->album_composer);
 	free(c->genre);
 	free(c->cuefile);
-	
-	{
-		int i,N;
-		for(i=0,N=c->count;i<N;i++) {
-			cue_entry_t *e=c->entries[i];
-			free(e->title);
-			free(e->performer);
-			free(e->year);
-			free(e->composer);
-			free(e->piece);
-			free(e);
-		}
-	}	
+	free(c);
 }
 
 int cue_valid(cue_t *c) {
@@ -376,6 +371,10 @@ const char *cue_audio_file(cue_t *cue) {
 
 int cue_count(cue_t *cue) {
 	return cue->count;
+}
+
+int cue_entries(cue_t *cue) {
+    return cue->count;
 }
 
 cue_entry_t *cue_entry(cue_t *cue,int index) {
@@ -440,6 +439,27 @@ char *cue_entry_alloc_id(cue_entry_t *ce) {
 	return s;
 }
 
+void cue_entry_destroy(cue_entry_t *ce) {
+    cue_t *c=cue_entry_sheet(ce);
+    int i,N;
+    for(i=0,N=cue_entries(c);i<N && cue_entry(c,i)!=ce;i++);
+    log_assert(i!=N);
 
+    cue_entry_t *e=ce;
+    free(e->title);
+    free(e->performer);
+    free(e->year);
+    free(e->composer);
+    free(e->piece);
+    free(e);
 
+    for(;i<N-1;i++) {
+        c->entries[i]=c->entries[i+1];
+    }
+    c->count=N-1;
+
+    if (c->count<=0) {
+        cue_destroy1(c);
+    }
+}
 

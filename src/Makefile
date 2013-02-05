@@ -2,8 +2,10 @@
 FUSE_CFLAGS=$(shell pkg-config --cflags fuse)
 FUSE_LDFLAGS=$(shell pkg-config --libs fuse)
 
-MP3SPLT_CFLAGS=-I../mp3splt/include
-MP3SPLT_LDFLAGS=-L../mp3splt/lib -lmp3splt
+#MP3SPLT_CFLAGS=-I../mp3splt/include
+#MP3SPLT_LDFLAGS=-L../mp3splt/lib -lmp3splt
+MP3SPLT_CFLAGS=-I/usr/local/include
+MP3SPLT_LDFLAGS=-L/usr/local/lib -lmp3splt
 
 CC=cc
 CFLAGS=-c -I../elementals $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
