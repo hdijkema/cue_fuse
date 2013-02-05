@@ -2,9 +2,9 @@
 PWD=$(shell pwd)
 PREFIX=/usr/local
 
-all: bin/mp3cuefuse
+all: bin/mp3cuefuse 
 
-bin/mp3cuefuse: elementals/libelementals.a mp3cuefuse
+bin/mp3cuefuse: elementals/libelementals.a mp3cuefuse mp3splt_sup/lib/libpm3splt.so
 	(cd src; make)
 	mkdir -p bin
 	mv src/mp3cuefuse_bin bin
@@ -40,19 +40,17 @@ install: bin/mp3cuefuse
 	mkdir -p ${PREFIX}/bin
 	cp bin/* ${PREFIX}/bin
 	chmod 755 ${PREFIX}/bin/mp3cuefuse
-	#mkdir -p ${PREFIX}/bin/mp3splt_sup
-	#(cd mp3splt;tar cf - .) | (cd ${PREFIX}/bin/mp3splt_sup;tar xvf -)
+	mkdir -p ${PREFIX}/bin/mp3splt_sup
+	(cd mp3splt_sup;tar cf - .) | (cd ${PREFIX}/bin/mp3splt_sup;tar xvf -)
 
 clean:
 	rm -rf bin *~
 	(cd src;make clean)
 	(cd elementals; make clean)
-	if [ -d libmp3splt ]; then cd libmp3splt; make clean;rm -f libmp3splt/config.status; fi
+	if [ -d libmp3splt ]; then cd libmp3splt; make clean;rm -f config.status; fi
 	rm -rf mp3splt_sup
 
 distclean: clean
 	rm -rf elementals 
-	
-
 	
 

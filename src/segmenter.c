@@ -28,7 +28,7 @@
 #include <id3tag.h>
 #include "log.h"
 
-#define SEGMENT_USING_FILE
+//#define SEGMENT_USING_FILE
 
 /**********************************************************************/
 
@@ -81,26 +81,34 @@ static int mp3splt(segmenter_t * S)
 	FILE *f = open_memstream((char **)&S->memory_block, &S->size);
 #endif
 
+
 	int begin_offset_in_hs = S->segment.begin_offset_in_ms / 10;
 	int end_offset_in_hs = -1;
 	if (S->segment.end_offset_in_ms >= 0) {
 		end_offset_in_hs = S->segment.end_offset_in_ms / 10;
 	}
+
 	// Creating state
 	splt_state *state = mp3splt_new_state(NULL);
+  log_debug("new state");
 	mp3splt_find_plugins(state);
+	log_debug("plugins found");
 
 	// Set split path and custom name
 	mp3splt_set_path_of_split(state, "/tmp");
+	log_debug("split path set");
 	mp3splt_set_int_option(state, SPLT_OPT_OUTPUT_FILENAMES,
 			       SPLT_OUTPUT_CUSTOM);
+  log_debug("custom split set");
 
 	// Set filename to split and pretend mode, for memory based splitting
 	mp3splt_set_filename_to_split(state, S->segment.filename);
+	log_debug("filename to split set");
 #ifndef SEGMENT_USING_FILE
 	mp3splt_set_int_option(state, SPLT_OPT_PRETEND_TO_SPLIT, SPLT_TRUE);
 	mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer,
 						    (void *)f);
+  log_debug("pretend split and write function set");
 #endif
 
 	// Create splitpoints
@@ -116,6 +124,7 @@ static int mp3splt(segmenter_t * S)
 	splt_point *skip = mp3splt_point_new(end_offset_in_hs, NULL);
 	mp3splt_point_set_type(skip, SPLT_SKIPPOINT);
 	mp3splt_append_splitpoint(state, skip);
+	log_debug("split points set");
 
 	// Append cuesheet tags and merge with existing
 	{
@@ -133,7 +142,10 @@ static int mp3splt(segmenter_t * S)
 		sprintf(track, "%d", S->segment.track);
 
 		mp3splt_read_original_tags(state);
+		log_debug("original tags read");
+
 		mp3splt_tags_set(tags, SPLT_TAGS_ORIGINAL, "true", NULL);
+		log_debug("SPLT_TAGS_ORIGINAL set");
 		mp3splt_tags_set(tags,
          SPLT_TAGS_TITLE, title,
 				 SPLT_TAGS_ARTIST, artist,
@@ -142,18 +154,24 @@ static int mp3splt(segmenter_t * S)
 				 SPLT_TAGS_YEAR, year,
 				 SPLT_TAGS_COMMENT, comment,
 				 SPLT_TAGS_GENRE, genre,
-				 SPLT_TAGS_TRACK, track, NULL);
+				 SPLT_TAGS_TRACK, track,
+				 NULL);
+    log_debug("tags set");
 		mp3splt_append_tags(state, tags);
+		log_debug("tag appended");
 	}
 
 	// split the stuff
 	int error = SPLT_OK;
 	error = mp3splt_split(state);
+	log_debug("split done");
 	mp3splt_free_state(state);
+	log_debug("state freeed");
 	log_debug2("mp3splt_split: result=%d", error);
 
 #ifndef SEGMENT_USING_FILE
 	fclose(f);
+	log_debug("memory file closed");
 #endif
 
 	if (error == SPLT_OK_SPLIT || error == SPLT_OK_SPLIT_EOF) {

@@ -626,6 +626,8 @@ static struct fuse_operations mp3cue_oper = {
 	.release = mp3cue_release,
 };
 
+/***********************************************************************/
+
 extern FILE *log_handle()
 {
 	static FILE *log = NULL;
@@ -634,6 +636,12 @@ extern FILE *log_handle()
 	}
 	return log;
 }
+
+inline extern int log_this_severity(int severity) {
+  return severity>LOG_DEBUG;
+}
+
+/***********************************************************************/
 
 int main(int argc, char *argv[])
 {
