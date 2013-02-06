@@ -235,9 +235,7 @@ cue_t *cue_new(const char *file)
 		cue_entry_t *entry = NULL;
 		int in_tracks = 0;
 		while ((line = readline(f)) != NULL) {
-			log_debug2("reading line: %s", line);
 			trim_replace(&line);
-			log_debug2("reading line: %s", line);
 			if (strcmp(line, "") != 0) {
 				if (!in_tracks) {
 					if (eq(line, "performer")) {
@@ -340,6 +338,14 @@ cue_t *cue_new(const char *file)
 		free(year);
 		free(image);
 
+		// We have a full path audio file now.
+		// get the mtime.
+		{
+		  struct stat st;
+		  stat(r->audio_file,&st);
+		  r->audio_mtime=st.st_mtime;
+		}
+
 		{
 			int i, N;
 			for (i = 0, N = r->count; i < N - 1; i++) {
@@ -412,6 +418,10 @@ const char *cue_genre(cue_t * cue)
 const char *cue_audio_file(cue_t * cue)
 {
 	return T(cue->audio_file);
+}
+
+time_t cue_audio_mtime(cue_t * cue) {
+  return cue->audio_mtime;
 }
 
 int cue_count(cue_t * cue)
@@ -487,6 +497,11 @@ const char *cue_entry_vfile(cue_entry_t * ce)
 		char *name = (char *)malloc(10 + strlen(cue_entry_title(ce)) + 4);
 		char *ext = getExt(cue_audio_file(c));
 		sprintf(name, "%02d - %s.%s", ce->tracknr, ce->title, ext);
+		int i,N;
+		for(i=0,N=strlen(name);i<N;i++) {
+		  if (name[i]=='/') { name[i]=' '; }
+		}
+
 		free(ext);
 		ce->vfile = name;
 	}
@@ -525,4 +540,19 @@ void cue_entry_destroy(cue_entry_t * ce)
 	if (c->count <= 0) {
 		cue_destroy1(c);
 	}
+}
+
+int cue_entry_audio_changed(cue_entry_t *ce) {
+  struct stat st;
+  char *af=cue_audio_file(cue_entry_sheet(ce));
+  stat(af,&st);
+  time_t at=cue_audio_mtime(cue_entry_sheet(ce));
+  if (at!=st.st_mtime) {
+    log_info("audio changed!");
+    cue_t *sheet=cue_entry_sheet(ce);
+    sheet->audio_mtime=st.st_mtime;
+    return 1;
+  } else {
+    return 0;
+  }
 }

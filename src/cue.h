@@ -20,6 +20,13 @@
 #ifndef __CUE__HOD
 #define __CUE__HOD
 
+#include <unistd.h>
+#include <getopt.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <stdlib.h>
+
 typedef struct {
 	char *title;
 	char *performer;
@@ -36,6 +43,7 @@ typedef struct {
 typedef struct {
 	int _errno;
 	char *audio_file;
+	time_t audio_mtime;
 	char *album_title;
 	char *album_performer;
 	char *album_composer;
@@ -60,6 +68,7 @@ const char *cue_album_title(cue_t * cue);
 const char *cue_album_performer(cue_t * cue);
 const char *cue_album_composer(cue_t * cue);
 const char *cue_audio_file(cue_t * cue);
+time_t cue_audio_mtime(cue_t * cue);
 const char *cue_genre(cue_t * cue);
 
 int cue_entries(cue_t * cue);
@@ -79,5 +88,6 @@ int cue_entry_end_offset_in_ms(cue_entry_t * ce);
 cue_t *cue_entry_sheet(cue_entry_t * ce);
 const char *cue_entry_vfile(cue_entry_t * ce);
 char *cue_entry_alloc_id(cue_entry_t * ce);
+int cue_entry_audio_changed(cue_entry_t * ce);
 
 #endif

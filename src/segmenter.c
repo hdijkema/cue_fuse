@@ -29,6 +29,12 @@
 #include "log.h"
 
 //#define SEGMENT_USING_FILE
+#define GARD_WITH_MUTEX
+
+#ifdef GARD_WITH_MUTEX
+#include <pthread.h>
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 /**********************************************************************/
 
@@ -192,12 +198,28 @@ static int mp3splt(segmenter_t * S)
 /**********************************************************************/
 static int split_mp3(segmenter_t * S)
 {
-	return mp3splt(S);
+  int result;
+#ifdef GARD_WITH_MUTEX
+  pthread_mutex_lock(&mutex);
+#endif
+	result = mp3splt(S);
+#ifdef GARD_WITH_MUTEX
+	pthread_mutex_unlock(&mutex);
+#endif
+  return result;
 }
 
 static int split_ogg(segmenter_t * S)
 {
-	return mp3splt(S);
+  int result;
+#ifdef GARD_WITH_MUTEX
+  pthread_mutex_lock(&mutex);
+#endif
+	result = mp3splt(S);
+#ifdef GARD_WITH_MUTEX
+	pthread_mutex_unlock(&mutex);
+#endif
+  return result;
 }
 
 /**********************************************************************/

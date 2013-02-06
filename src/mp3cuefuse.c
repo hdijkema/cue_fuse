@@ -42,8 +42,8 @@
 #define PMKR(st,A) if (st->st_mode&A) { log_debug("modeadjust");st->st_mode-=A; }
 #define PMK_READONLY(st) PMKR(st,S_IWUSR);PMKR(st,S_IWGRP);PMKR(st,S_IWOTH);
 
-//#define MK_READONLY(st) (st.st_mode&=!(S_IWUSR|S_IWGRP|S_IWOTH));
-//#define PMK_READONLY(st) (st->st_mode&=!(S_IWUSR|S_IWGRP|S_IWOTH));
+#define false 0
+#define true  1
 
 /***********************************************************************/
 
@@ -56,6 +56,135 @@ int usage(char *p)
 {
 	fprintf(stderr, "%s [--memory|m maxMB] <cue directory> <mountpoint>\n", p);
 	return 1;
+}
+
+/***********************************************************************/
+
+static char *trim(const char *line)
+{
+	int i, j;
+	for (i = 0; line[i] != '\0' && isspace(line[i]); i++) ;
+	char *k = strdup(&line[i]);
+	for (j = strlen(k) - 1; j >= 0 && isspace(k[j]); j--) ;
+	if (j >= 0) {
+		k[j + 1] = '\0';
+	}
+	return k;
+}
+
+/***********************************************************************/
+
+typedef struct {
+  size_t size;
+  time_t mtime;
+} vfile_size_t;
+
+hash_data_t vfile_size_copy(vfile_size_t *e) {
+  vfile_size_t *fs=(vfile_size_t *) malloc(sizeof(vfile_size_t));
+  fs->size=e->size;
+  fs->mtime=e->mtime;
+}
+
+void vfile_size_destroy(hash_data_t d) {
+  vfile_size_t *fs=(vfile_size_t *) d;
+  free(fs);
+}
+
+DECLARE_HASH(vfilesize_hash, vfile_size_t);
+IMPLEMENT_HASH(vfilesize_hash, vfile_size_t, vfile_size_copy, vfile_size_destroy);
+
+static vfilesize_hash *SIZE_HASH = NULL;
+
+void put_size(const char *vfile, size_t size, time_t mtime) {
+  vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfile);
+  if (e!=NULL) {
+    if (e->mtime != mtime) {
+      vfile_size_t e = { size, mtime };
+      vfilesize_hash_put(SIZE_HASH,vfile, &e);
+    }
+  } else {
+    vfile_size_t e = { size, mtime };
+    vfilesize_hash_put(SIZE_HASH,vfile, &e);
+  }
+}
+
+int has_size(const char *vfile, time_t mtime) {
+  vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfile);
+  if (e != NULL && e->mtime == mtime) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+size_t get_size(const char *vfile) {
+  vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfile);
+  if (e != NULL) {
+    return e->size;
+  } else {
+    return 0;
+  }
+}
+
+#define VFILESIZE_FILE_TYPE     "type:mp3cuefuse-size-cache"
+#define VFILESIZE_FILE_VERSION  "version:1"
+
+void read_in_sizes(const char *from_file) {
+
+  FILE *f = fopen(from_file, "rt");
+  if (f==NULL) {
+    return;
+  }
+
+  char *line = (char *) malloc(10240*sizeof(char));
+  if (fgets(line, 10240, f) != NULL) {
+    char *ln = trim(line);
+    if (strcmp(ln, VFILESIZE_FILE_TYPE) == 0) {
+      if (fgets(line, 10240, f) != NULL) {
+        char *ln1 = trim(line);
+        if (strcmp(ln1, VFILESIZE_FILE_VERSION) == 0) {
+          while (fgets(line, 10240, f) != NULL) {
+            char *ln2 = trim(line);
+            char *vfile = strdup( ln2 );
+            fgets(line, 10240, f);
+            char *ln3 = trim( line );
+            size_t size = (size_t) strtoul(ln3, NULL, 10);
+            fgets(line, 10240, f);
+            char *ln4 = trim (line);
+            time_t mtime = (time_t) strtoul(ln4, NULL, 10);
+            put_size( vfile, size, mtime );
+            free( vfile);
+            free( ln4 );
+            free( ln3 );
+            free( ln2 );
+          }
+        }
+        free( ln1 );
+      }
+    }
+    free( ln );
+  }
+  free(line);
+  fclose(f);
+}
+
+void write_sizes(const char * to_file) {
+  FILE *f = fopen(to_file, "wt");
+  fputs(VFILESIZE_FILE_TYPE /**/ "\n", f);
+  fputs(VFILESIZE_FILE_VERSION /**/ "\n", f);
+  hash_iter_t it;
+  it = vfilesize_hash_iter(SIZE_HASH);
+  while (!hash_iter_end(it)) {
+    vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, hash_iter_key(it) );
+    if (e != NULL) {
+      fprintf(f, "%s\n%lu\n%lu\n", hash_iter_key(it),
+                  (unsigned long) e->size, (unsigned long) e->mtime );
+    } else {
+      log_debug("Unexpected!");
+    }
+    it = hash_iter_next(it);
+  }
+  fclose(f);
 }
 
 /***********************************************************************/
@@ -145,6 +274,18 @@ segmenter_t *find_seg_entry(cue_entry_t * e)
 
 /***********************************************************************/
 
+pthread_mutex_t DATA_ENTRY_MONITOR=PTHREAD_MUTEX_INITIALIZER;
+
+void enter_de_monitor() {
+  pthread_mutex_lock(&DATA_ENTRY_MONITOR);
+}
+
+void leave_de_monitor() {
+  pthread_mutex_unlock(&DATA_ENTRY_MONITOR);
+}
+
+#define DE_MONITOR(code) enter_de_monitor();code;leave_de_monitor()
+
 typedef struct {
 	cue_entry_t *entry;
 	char *path;
@@ -158,6 +299,7 @@ static data_entry_t *data_entry_new(const char *path, cue_entry_t * entry, struc
 	e->path = strdup(path);
 	e->entry = entry;
 	e->open_count = 0;
+
 	if (st != NULL) {
 		struct stat *stn = (struct stat *)malloc(sizeof(struct stat));
 		memcpy((void *)stn, (void *)st, sizeof(struct stat));
@@ -302,12 +444,33 @@ static char *isCueFile(const char *full_path)
 	return NULL;
 }
 
+static char *getCueFileForTrack(const char *full_path_of_track, int with_ext) {
+  char *fp = (char *)malloc(strlen(full_path_of_track) + strlen(".cue") + 1);
+  strcpy(fp, full_path_of_track);
+  int i,N;
+  for(N = strlen(fp), i = N-1; i >= 0 && fp[i] != '/'; --i);
+  if (i<0) {
+    log_error("Unexpected!");
+    return fp;
+  } else {
+    fp[i] = '\0';
+    if (with_ext) {
+      strcat(fp, ".cue");
+    }
+    return fp;
+  }
+}
+
 /***********************************************************************/
 
-static segmenter_t *create_segment(cue_entry_t * e)
+static segmenter_t *get_segment(cue_entry_t * e, int update)
 {
 	segmenter_t *se = find_seg_entry(e);
 	if (se != NULL) {
+	  if (update) {
+	    log_info("creating segment again");
+	    segmenter_create(se);
+	  }
 		return se;
 	} else {
 		cue_t *sheet = cue_entry_sheet(e);
@@ -347,11 +510,11 @@ static void delist_destroy_entry(list_data_t e)
 DECLARE_LIST(delist, data_entry_t);
 IMPLEMENT_LIST(delist, data_entry_t, delist_copy, delist_destroy_entry);
 
-static cue_t *mp3cue_readcue_in_btree(const char *path)
+static cue_t *mp3cue_readcue_in_hash(const char *path, int update_data)
 {
 	char *fullpath = make_path(path);
 	char *cuefile = isCueFile(fullpath);
-	log_debug2("reading cuefile %s", cuefile);
+	log_debug3("reading cuefile %s for %s", cuefile, fullpath);
 	cue_t *cue = cue_new(cuefile);
 	struct stat st;
 	stat(cuefile, &st);
@@ -359,23 +522,45 @@ static cue_t *mp3cue_readcue_in_btree(const char *path)
 	if (cue != NULL && cue_valid(cue)) {
 		int added = 0;
 		int i, N;
+
 		// check if cue already exists in hash. If not, create whole cue in hash and read in again.
 		for (i = 0, N = cue_count(cue); i < N; i++) {
 			cue_entry_t *entry = cue_entry(cue, i);
 			char *p = make_path2(path, cue_entry_vfile(entry));
+
 			log_debug2("p=%s", p);
-			data_entry_t *d = data_entry_new(p, entry, &st);
 			if (datahash_exists(DATA, p)) {
-				// do nothing
+				// update entry only if requested
+				if ( update_data ) {
+				  // only update the data in d, otherwise we won't be thread safe!
+				  // Never deallocate an entry in the hash!
+				  // We also know, that when the track title is changed, there will be a
+				  // new entry in the hash, so, we get some rubbish but don't care.
+				  // We update the file sizes and the cue_entry here.
+
+				  // So we need a monitor around the file operations that act on the hash
+				  // data.
+
+          data_entry_t *dd = datahash_get(DATA, p);
+          cue_entry_destroy(dd->entry);
+          dd->entry=entry;
+          dd->st[0]=st;
+
+          // we don't need to update dd->path as dd->path and p must be equal
+				}
 			} else {
+        data_entry_t *d = data_entry_new(p, entry, &st);
 				datahash_put(DATA, p, d);
 				added = 1;
 			}
+
+			free(p);
 		}
+
 		if (added) {
 			free(cuefile);
 			free(fullpath);
-			return mp3cue_readcue_in_btree(path);
+			return mp3cue_readcue_in_hash(path, false);
 		}
 	}
 
@@ -387,7 +572,7 @@ static cue_t *mp3cue_readcue_in_btree(const char *path)
 static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
 	log_debug2("enter with %s", path);
-	cue_t *cue = mp3cue_readcue_in_btree(path);
+	cue_t *cue = mp3cue_readcue_in_hash(path, false);
 
 	char *fullpath = make_path(path);
 	char *cuefile = isCueFile(fullpath);
@@ -416,13 +601,16 @@ static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler, o
 	return 0;
 }
 
-/***********************************************************************/
+/***********************************************************************
+ File system operations. Here we use the DE_MONITOR. Nowhere else!
+*/
 
 static int mp3cue_getattr(const char *path, struct stat *stbuf)
 {
 	log_debug2("mp3cue_getattr %s", path);
 	char *fullpath = make_path(path);
 	char *cue = isCueFile(fullpath);
+
 	if (cue != NULL) {
 		log_debug2("mp3cue_getattr cue=%s", cue);
 		int ret = stat(cue, stbuf);
@@ -431,18 +619,51 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_mode += S_IFDIR;
 		free(fullpath);
 		free(cue);
-		mp3cue_readcue_in_btree(path);
+		DE_MONITOR(
+      mp3cue_readcue_in_hash(path, false);
+    );
 		return ret;
+
 	} else {
+
 		data_entry_t *d = datahash_get(DATA, fullpath);
 		log_debug2("found d=%p", d);
 		if (d != NULL) {
-			segmenter_t *s = create_segment(d->entry);
-			d->st->st_size = segmenter_size(s);
-			log_debug3("for filename %s, size=%d",
-				   cue_audio_file(cue_entry_sheet(d->entry)), (int)segmenter_size(s));
-			memcpy(stbuf, d->st, sizeof(struct stat));
-			free(fullpath);
+		  DE_MONITOR(
+        // check if the cuesheet mtime has changed, if so,
+        // reread the cue.
+        {
+          log_debug2("cuefile for %s",fullpath);
+          char *cue = getCueFileForTrack(fullpath, true);
+          struct stat st;
+          int ret = stat(cue, &st);
+          log_debug4("stat cuefile %s, mtime=%d, registered:%d",
+                      cue,
+                      (int) st.st_mtime,
+                      (int) d->st->st_mtime
+                      );
+          free(cue);
+          if (st.st_mtime != d->st->st_mtime) {
+            char *cpath = getCueFileForTrack(path, false);
+            mp3cue_readcue_in_hash(cpath, true); // replace cue in hash
+            free(cpath);
+          }
+        }
+        // check if we already have the size
+        if (has_size( fullpath, d->st->st_mtime )) {
+          log_debug("hassize = true");
+          d->st->st_size = get_size( fullpath );
+        } else {
+          log_debug("hassize = false");
+          segmenter_t *s = get_segment(d->entry, true);
+          d->st->st_size = segmenter_size(s);
+          put_size(fullpath, d->st->st_size, d->st->st_mtime);
+        }
+        log_debug3("for filename %s, size=%d",
+             cue_audio_file(cue_entry_sheet(d->entry)), (int) d->st->st_size);
+        memcpy(stbuf, d->st, sizeof(struct stat));
+        free(fullpath);
+      ); // end monitor
 			return 0;
 		} else {
 			int ret = stat(fullpath, stbuf);
@@ -467,7 +688,11 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
 		log_debug2("mp3cue_readdir iscuefile %s", cue);
 		free(cue);
 		free(fullpath);
-		return mp3cue_readcue(path, buf, filler, offset, fi);
+		int retval;
+		DE_MONITOR(
+      retval=mp3cue_readcue(path, buf, filler, offset, fi);
+    );
+    return retval;
 	}
 
 	DIR *dh = opendir(fullpath);
@@ -543,19 +768,25 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 		data_entry_t *d = datahash_get(DATA, fullpath);
 		log_debug2("found d=%p", d);
 		if (d != NULL) {
-			segmenter_t *s = create_segment(d->entry);
-			if (segmenter_stream(s) == NULL) {
-				if (segmenter_open(s) != SEGMENTER_OK) {
-					log_debug2("Cannot open segment %s", cue_entry_vfile(d->entry));
-					free(fullpath);
-					return -EPERM;
-				}
-			}
-			FILE *f = segmenter_stream(s);
-			fi->fh = fileno(f);
-			d->open_count += 1;
-			free(fullpath);
-			return 0;
+		  int retval=0;
+		  DE_MONITOR(
+        log_info("getting segment");
+        segmenter_t *s = get_segment(d->entry, cue_entry_audio_changed(d->entry) );
+        if (segmenter_stream(s) == NULL) {
+          if (segmenter_open(s) != SEGMENTER_OK) {
+            log_debug2("Cannot open segment %s", cue_entry_vfile(d->entry));
+            free(fullpath);
+            retval = -EPERM;
+          }
+        }
+        if (retval == 0) {
+          FILE *f = segmenter_stream(s);
+          fi->fh = fileno(f);
+          d->open_count += 1;
+          free(fullpath);
+        }
+      );
+      return retval;
 		} else {
 			fi->fh = 0;
 			int ret = -EISDIR;
@@ -575,8 +806,10 @@ static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset, s
 		data_entry_t *d = datahash_get(DATA, fullpath);
 		log_debug2("found d=%p", d);
 		if (d != NULL) {
-			segmenter_t *s = create_segment(d->entry);
-			FILE *f = segmenter_stream(s);
+		  DE_MONITOR(
+        segmenter_t *s = get_segment(d->entry, false);
+        FILE *f = segmenter_stream(s);
+      );
 			if (f == NULL) {
 				return -EIO;
 			} else {
@@ -603,8 +836,10 @@ static int mp3cue_release(const char *path, struct fuse_file_info *fi)
 			d->open_count -= 1;
 			if (d->open_count <= 0) {
 				d->open_count = 0;
-				segmenter_t *s = create_segment(d->entry);
-				log_debug2("closing segment %s", cue_entry_vfile(d->entry));
+				DE_MONITOR(
+          segmenter_t *s = get_segment(d->entry, false);
+          log_debug2("closing segment %s", cue_entry_vfile(d->entry));
+        );
 				segmenter_close(s);
 				fi->fh = 0;
 			}
@@ -636,7 +871,8 @@ extern FILE *log_handle()
 
 inline extern int log_this_severity(int severity)
 {
-	return severity > LOG_DEBUG;
+  int retval = (severity > LOG_DEBUG);
+	return retval;
 }
 
 /***********************************************************************/
@@ -646,6 +882,13 @@ int main(int argc, char *argv[])
 	// Initialize
 	DATA = datahash_new(100, HASH_CASE_SENSITIVE);
 	SEGMENT_LIST = seglist_new();
+	SIZE_HASH = vfilesize_hash_new(100, HASH_CASE_SENSITIVE);
+
+	// Read in current sizes
+  char *home=getenv("HOME");
+  char cfgfile[1024];
+  snprintf(cfgfile,1024-1,"%s/.mp3cuefuse",home);
+  read_in_sizes(cfgfile);
 
 	// Option handling
 
@@ -697,10 +940,14 @@ int main(int argc, char *argv[])
 		retval = usage(argv[0]);
 	}
 
+  // Write out
+  write_sizes(cfgfile);
+
 	// Destroy
 
 	datahash_destroy(DATA);
 	seglist_destroy(SEGMENT_LIST);
+	vfilesize_hash_destroy(SIZE_HASH);
 
 	return retval;
 
