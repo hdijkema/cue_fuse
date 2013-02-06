@@ -24,17 +24,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include "log.h"
+#include "memcheck.h"
 
 #define T(a) 	(a==NULL) ? "" : a
 
-static char *mystrdup(const char *s)
-{
-	if (s == NULL) {
-		return NULL;
-	} else {
-		return strdup(s);
-	}
-}
+#define mystrdup(s) (s == NULL) ? NULL : mc_strdup(s)
 
 static char *readline(FILE * f)
 {
@@ -51,7 +45,7 @@ static char *readline(FILE * f)
 				buf[i] = '\0';
 				ret = 1;
 			}
-			line = (char *)realloc(line, strlen(line) + 1 + i + 1);
+			line = (char *)mc_realloc(line, strlen(line) + 1 + i + 1);
 			strcat(line, buf);
 			if (ret) {
 				return line;
@@ -62,12 +56,12 @@ static char *readline(FILE * f)
 	if (readsome) {
 		return line;
 	} else {
-		free(line);
+		mc_free(line);
 		return NULL;
 	}
 }
 
-static char *trim(const char *line)
+static char *mytrim(const char *line)
 {
 	int i, j;
 	for (i = 0; line[i] != '\0' && isspace(line[i]); i++) ;
@@ -79,26 +73,30 @@ static char *trim(const char *line)
 	return k;
 }
 
-static void trim_replace(char **line)
+#define trim(a) (char *) mc_take_over(mytrim(a))
+
+static void mytrim_replace(char **line)
 {
 	char *rl = trim(*line);
-	free(*line);
+	mc_free(*line);
 	*line = rl;
 }
+
+#define trim_replace(q) mytrim_replace(q),mc_take_over(*q)
 
 static int eq(const char *s, const char *e)
 {
 	char *r = trim(s);
 	if (strncasecmp(r, e, strlen(e)) == 0) {
-		free(r);
+		mc_free(r);
 		return 1;
 	} else {
-		free(r);
+		mc_free(r);
 		return 0;
 	}
 }
 
-static char *unquote(const char *s, const char *e)
+static char *myunquote(const char *s, const char *e)
 {
 	char *r = trim(s);
 	char *p = &r[strlen(e)];
@@ -116,17 +114,19 @@ static char *unquote(const char *s, const char *e)
 		}
 		char *k = mystrdup(p);
 		trim_replace(&k);
-		free(r);
+		mc_free(r);
 		log_debug2("k=%s", k);
 		return k;
 	}
 }
 
+#define unquote(s,e)  (char *) mc_take_over(myunquote(s,e))
+
 static char *getFilePart(const char *s)
 {
 	int i, j;
 	for (i = 0; s[i] != '"' && s[i] != '\0'; i++) ;
-	char *fl = strdup(&s[i]);
+	char *fl = mc_strdup(&s[i]);
 	for (i = strlen(fl) - 1; i >= 0 && fl[i] != '"'; i--) ;
 	fl[i + 1] = '\0';
 	return fl;
@@ -134,7 +134,7 @@ static char *getFilePart(const char *s)
 
 static cue_entry_t *cue_entry_new(cue_t * s)
 {
-	cue_entry_t *r = (cue_entry_t *) malloc(sizeof(cue_entry_t));
+	cue_entry_t *r = (cue_entry_t *) mc_malloc(sizeof(cue_entry_t));
 	if (r == NULL) {
 		return NULL;
 	}
@@ -153,7 +153,7 @@ static cue_entry_t *cue_entry_new(cue_t * s)
 static void addEntry(cue_t * r, cue_entry_t * entry)
 {
 	r->count += 1;
-	r->entries = (cue_entry_t **) realloc(r->entries, sizeof(cue_entry_t *) * r->count);
+	r->entries = (cue_entry_t **) mc_realloc(r->entries, sizeof(cue_entry_t *) * r->count);
 	r->entries[r->count - 1] = entry;
 }
 
@@ -213,7 +213,7 @@ static char *getExt(const char *filename)
 
 cue_t *cue_new(const char *file)
 {
-	cue_t *r = (cue_t *) malloc(sizeof(cue_t));
+	cue_t *r = (cue_t *) mc_malloc(sizeof(cue_t));
 
 	r->audio_file = NULL;
 	r->album_title = NULL;
@@ -241,32 +241,29 @@ cue_t *cue_new(const char *file)
 			if (strcmp(line, "") != 0) {
 				if (!in_tracks) {
 					if (eq(line, "performer")) {
-						free(r->album_performer);
+						mc_free(r->album_performer);
 						r->album_performer = unquote(line, "performer");
 					} else if (eq(line, "title")) {
-						free(r->album_title);
+						mc_free(r->album_title);
 						r->album_title = unquote(line, "title");
 					} else if (eq(line, "file")) {
-						free(r->audio_file);
+						mc_free(r->audio_file);
 						char *fl = getFilePart(line);
 						char *af = unquote(fl, "");
 						if (strlen(af) > 0) {
 							if (af[0] == '/') {
 								r->audio_file = af;
 							} else {
-								char *cf = strdup(r->cuefile);
+								char *cf = mc_strdup(r->cuefile);
 								int ii;
-								for (ii = strlen(cf)
-								     - 1; ii >= 0 && cf[ii]
-								     != '/'; ii--) ;
+								for (ii = strlen(cf) - 1; ii >= 0 && cf[ii] != '/'; ii--) ;
 								if (ii >= 0) {
 									cf[ii] = '\0';
-									char *aaf =
-									    (char *)malloc(strlen(cf) + strlen(af) +
-											   strlen("/") + 1);
+									char *aaf = (char *)mc_malloc(strlen(cf) + strlen(af) + strlen("/") + 1);
 									sprintf(aaf, "%s/%s", cf, af);
 									r->audio_file = aaf;
-									free(cf);
+									mc_free(cf);
+									mc_free(af);
 								} else {
 									r->audio_file = af;
 								}
@@ -282,19 +279,19 @@ cue_t *cue_new(const char *file)
               _audio_mtime=st.st_mtime;
             }
 
-						free(fl);
+						mc_free(fl);
 					} else if (eq(line, "rem")) {
 						if (eq(&line[3], "date")) {
-							free(year);
+							mc_free(year);
 							year = unquote(&line[3], "date");
 						} else if (eq(&line[3], "image")) {
-							free(image);
+							mc_free(image);
 							image = unquote(&line[3], "image");
 						} else if (eq(&line[3], "composer")) {
-							free(r->album_composer);
+							mc_free(r->album_composer);
 							r->album_performer = unquote(&line[3], "composer");
 						} else if (eq(&line[3], "genre")) {
-							free(r->genre);
+							mc_free(r->genre);
 							r->genre = unquote(&line[3], "genre");
 						}
 					} else if (eq(line, "track")) {
@@ -316,38 +313,38 @@ cue_t *cue_new(const char *file)
 						entry->piece = NULL;
 						log_debug2("track: created new entry %p", entry);
 					} else if (eq(line, "title")) {
-						free(entry->title);
+						mc_free(entry->title);
 						entry->title = unquote(line, "title");
 					} else if (eq(line, "performer")) {
-						free(entry->performer);
+						mc_free(entry->performer);
 						entry->performer = unquote(line, "performer");
 					} else if (eq(line, "index")) {
 						char *index = unquote(line, "index");
 						entry->begin_offset_in_ms = calculateOffset(index);
-						free(index);
+						mc_free(index);
 					} else if (eq(line, "rem")) {
 						if (eq(&line[3], "composer")) {
-							free(entry->composer);
+							mc_free(entry->composer);
 							entry->composer = unquote(&line[3], "composer");
 						} else if (eq(&line[3], "piece")) {
-							free(entry->piece);
+							mc_free(entry->piece);
 							entry->piece = unquote(&line[3], "piece");
 						} else if (eq(&line[3], "year")) {
-							free(year);
+							mc_free(year);
 							year = unquote(&line[3], "year");
-							free(entry->year);
+							mc_free(entry->year);
 							entry->year = mystrdup(year);
 						}
 					}
 				}
 			}
-			free(line);
+			mc_free(line);
 		}
 		if (entry != NULL) {
 			addEntry(r, entry);
 		}
-		free(year);
-		free(image);
+		mc_free(year);
+		mc_free(image);
 
 
 		{
@@ -375,13 +372,14 @@ void cue_destroy(cue_t * c)
 
 static void cue_destroy1(cue_t * c)
 {
-	free(c->audio_file);
-	free(c->album_title);
-	free(c->album_performer);
-	free(c->album_composer);
-	free(c->genre);
-	free(c->cuefile);
-	free(c);
+	mc_free(c->audio_file);
+	mc_free(c->album_title);
+	mc_free(c->album_performer);
+	mc_free(c->album_composer);
+	mc_free(c->genre);
+	mc_free(c->cuefile);
+	mc_free(c->entries);
+	mc_free(c);
 }
 
 int cue_valid(cue_t * c)
@@ -494,7 +492,7 @@ const char *cue_entry_vfile(cue_entry_t * ce)
 {
 	if (ce->vfile == NULL) {
 		cue_t *c = (cue_t *) ce->sheet;
-		char *name = (char *)malloc(10 + strlen(cue_entry_title(ce)) + 4);
+		char *name = (char *)mc_malloc(10 + strlen(cue_entry_title(ce)) + 4);
 		char *ext = getExt(cue_audio_file(c));
 		sprintf(name, "%02d - %s.%s", ce->tracknr, ce->title, ext);
 		int i,N;
@@ -502,7 +500,7 @@ const char *cue_entry_vfile(cue_entry_t * ce)
 		  if (name[i]=='/') { name[i]=' '; }
 		}
 
-		free(ext);
+		mc_free(ext);
 		ce->vfile = name;
 	}
 	return ce->vfile;
@@ -511,7 +509,7 @@ const char *cue_entry_vfile(cue_entry_t * ce)
 char *cue_entry_alloc_id(cue_entry_t * ce)
 {
 	int l = strlen(cue_entry_vfile(ce)) + strlen(cue_audio_file(cue_entry_sheet(ce))) + 1;
-	char *s = (char *)malloc(l);
+	char *s = (char *)mc_malloc(l);
 	strcpy(s, cue_entry_vfile(ce));
 	strcat(s, cue_audio_file(cue_entry_sheet(ce)));
 	return s;
@@ -525,12 +523,13 @@ void cue_entry_destroy(cue_entry_t * ce)
 	log_assert(i != N);
 
 	cue_entry_t *e = ce;
-	free(e->title);
-	free(e->performer);
-	free(e->year);
-	free(e->composer);
-	free(e->piece);
-	free(e);
+	mc_free(e->title);
+	mc_free(e->performer);
+	mc_free(e->year);
+	mc_free(e->composer);
+	mc_free(e->piece);
+	mc_free(e->vfile);
+	mc_free(e);
 
 	for (; i < N - 1; i++) {
 		c->entries[i] = c->entries[i + 1];

@@ -27,6 +27,7 @@
 #include <libmp3splt/mp3splt.h>
 #include <id3tag.h>
 #include "log.h"
+#include "memcheck.h"
 
 //#define SEGMENT_USING_FILE
 #define GARD_WITH_MUTEX
@@ -43,19 +44,19 @@ static char *getExt(const char *filename)
 	int i = strlen(filename) - 1;
 	for (; i >= 0 && filename[i] != '.'; i--) ;
 	if (i < 0) {
-		return strdup("");
+		return mc_strdup("");
 	} else {
-		return strdup(&filename[i + 1]);
+		return mc_strdup(&filename[i + 1]);
 	}
 }
 
 static void replace(char **s, const char *n)
 {
-	free(*s);
+	mc_free(*s);
 	if (n == NULL) {
-		*s = strdup("");
+		*s = mc_strdup("");
 	} else {
-		*s = strdup(n);
+		*s = mc_strdup(n);
 	}
 }
 
@@ -79,7 +80,7 @@ static int mp3splt(segmenter_t * S)
 
 	//log_debug("mp3splt_split: entered");
 
-	free(S->memory_block);
+	mc_free(S->memory_block);
 	S->size = -1;
 	S->memory_block = NULL;
 #ifndef SEGMENT_USING_FILE
@@ -169,6 +170,7 @@ static int mp3splt(segmenter_t * S)
 
 #ifndef SEGMENT_USING_FILE
 	fclose(f);
+	mc_take_control(S->memory_block, S->size);
 	//log_debug("memory file closed");
 #endif
 
@@ -187,10 +189,10 @@ static int mp3splt(segmenter_t * S)
 		fclose(g);
 		unlink(fn);
 #endif
-		free(ext);
+		mc_free(ext);
 		return SEGMENTER_OK;
 	} else {
-		free(ext);
+		mc_free(ext);
 		return SEGMENTER_ERR_CREATE;
 	}
 }
@@ -226,18 +228,18 @@ static int split_ogg(segmenter_t * S)
 
 segmenter_t *segmenter_new()
 {
-	segmenter_t *s = (segmenter_t *) malloc(sizeof(segmenter_t));
+	segmenter_t *s = (segmenter_t *) mc_malloc(sizeof(segmenter_t));
 	s->memory_block = NULL;
 	s->size = -1;
 	s->last_result = SEGMENTER_NONE;
-	s->segment.filename = strdup("");
-	s->segment.artist = strdup("");
-	s->segment.album = strdup("");
-	s->segment.album_artist = strdup("");
-	s->segment.title = strdup("");
-	s->segment.composer = strdup("");
-	s->segment.comment = strdup("");
-	s->segment.genre = strdup("");
+	s->segment.filename = mc_strdup("");
+	s->segment.artist = mc_strdup("");
+	s->segment.album = mc_strdup("");
+	s->segment.album_artist = mc_strdup("");
+	s->segment.title = mc_strdup("");
+	s->segment.composer = mc_strdup("");
+	s->segment.comment = mc_strdup("");
+	s->segment.genre = mc_strdup("");
 	s->segment.track = -1;
 	s->stream = NULL;
 	return s;
@@ -252,7 +254,7 @@ int segmenter_can_segment(segmenter_t * S, const char *filename)
 {
 	char *ext = getExt(filename);
 	int ok = (strcasecmp(ext, "mp3") == 0) || (strcasecmp(ext, "ogg") == 0);
-	free(ext);
+	mc_free(ext);
 	return ok;
 }
 
@@ -261,16 +263,16 @@ void segmenter_destroy(segmenter_t * S)
 	if (S->stream != NULL) {
 		fclose(S->stream);
 	}
-	free(S->memory_block);
-	free(S->segment.title);
-	free(S->segment.artist);
-	free(S->segment.album);
-	free(S->segment.album_artist);
-	free(S->segment.comment);
-	free(S->segment.composer);
-	free(S->segment.filename);
-	free(S->segment.genre);
-	free(S);
+	mc_free(S->memory_block);
+	mc_free(S->segment.title);
+	mc_free(S->segment.artist);
+	mc_free(S->segment.album);
+	mc_free(S->segment.album_artist);
+	mc_free(S->segment.comment);
+	mc_free(S->segment.composer);
+	mc_free(S->segment.filename);
+	mc_free(S->segment.genre);
+	mc_free(S);
 }
 
 int segmenter_create(segmenter_t * S)
@@ -288,13 +290,13 @@ int segmenter_create(segmenter_t * S)
 		S->last_result = SEGMENTER_ERR_FILETYPE;
 		return S->last_result;
 	} else if (strcasecmp(ext, "mp3") == 0) {
-		free(ext);
+		mc_free(ext);
 		return split_mp3(S);
 	} else if (strcasecmp(ext, "ogg") == 0) {
-		free(ext);
+		mc_free(ext);
 		return split_ogg(S);
 	} else {
-		free(ext);
+		mc_free(ext);
 		S->last_result = SEGMENTER_ERR_FILETYPE;
 		return S->last_result;
 	}

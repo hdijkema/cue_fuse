@@ -35,6 +35,7 @@
 #include "segmenter.h"
 #include "log.h"
 #include "list.h"
+#include "memcheck.h"
 
 #define MKR(st,A) if (st.st_mode&A) { log_debug("modeadjust");st.st_mode-=A; }
 #define MK_READONLY(st) MKR(st,S_IWUSR);MKR(st,S_IWGRP);MKR(st,S_IWOTH);
@@ -64,7 +65,7 @@ static char *trim(const char *line)
 {
 	int i, j;
 	for (i = 0; line[i] != '\0' && isspace(line[i]); i++) ;
-	char *k = strdup(&line[i]);
+	char *k = mc_strdup(&line[i]);
 	for (j = strlen(k) - 1; j >= 0 && isspace(k[j]); j--) ;
 	if (j >= 0) {
 		k[j + 1] = '\0';
@@ -80,14 +81,15 @@ typedef struct {
 } vfile_size_t;
 
 hash_data_t vfile_size_copy(vfile_size_t *e) {
-  vfile_size_t *fs=(vfile_size_t *) malloc(sizeof(vfile_size_t));
+  vfile_size_t *fs=(vfile_size_t *) mc_malloc(sizeof(vfile_size_t));
   fs->size=e->size;
   fs->mtime=e->mtime;
 }
 
 void vfile_size_destroy(hash_data_t d) {
+  log_debug("destroying size hash elem");
   vfile_size_t *fs=(vfile_size_t *) d;
-  free(fs);
+  mc_free(fs);
 }
 
 DECLARE_HASH(vfilesize_hash, vfile_size_t);
@@ -136,7 +138,7 @@ void read_in_sizes(const char *from_file) {
     return;
   }
 
-  char *line = (char *) malloc(10240*sizeof(char));
+  char *line = (char *) mc_malloc(10240*sizeof(char));
   if (fgets(line, 10240, f) != NULL) {
     char *ln = trim(line);
     if (strcmp(ln, VFILESIZE_FILE_TYPE) == 0) {
@@ -145,7 +147,7 @@ void read_in_sizes(const char *from_file) {
         if (strcmp(ln1, VFILESIZE_FILE_VERSION) == 0) {
           while (fgets(line, 10240, f) != NULL) {
             char *ln2 = trim(line);
-            char *vfile = strdup( ln2 );
+            char *vfile = mc_strdup( ln2 );
             fgets(line, 10240, f);
             char *ln3 = trim( line );
             size_t size = (size_t) strtoul(ln3, NULL, 10);
@@ -153,18 +155,18 @@ void read_in_sizes(const char *from_file) {
             char *ln4 = trim (line);
             time_t mtime = (time_t) strtoul(ln4, NULL, 10);
             put_size( vfile, size, mtime );
-            free( vfile);
-            free( ln4 );
-            free( ln3 );
-            free( ln2 );
+            mc_free( vfile);
+            mc_free( ln4 );
+            mc_free( ln3 );
+            mc_free( ln2 );
           }
         }
-        free( ln1 );
+        mc_free( ln1 );
       }
     }
-    free( ln );
+    mc_free( ln );
   }
-  free(line);
+  mc_free(line);
   fclose(f);
 }
 
@@ -201,10 +203,11 @@ list_data_t seg_entry_copy(seg_entry_t * e)
 
 void seg_entry_destroy(list_data_t _e)
 {
+  log_debug("destroying segment");
 	seg_entry_t *e = (seg_entry_t *) _e;
-	free(e->id);
+	mc_free(e->id);
 	segmenter_destroy(e->segment);
-	free(e);
+	mc_free(e);
 }
 
 DECLARE_LIST(seglist, seg_entry_t);
@@ -244,7 +247,7 @@ void add_seg_entry(cue_entry_t * e, segmenter_t * s)
 			}
 		}
 		log_debug("add our segment on front");
-		se = (seg_entry_t *) malloc(sizeof(seg_entry_t));
+		se = (seg_entry_t *) mc_malloc(sizeof(seg_entry_t));
 		se->id = cue_entry_alloc_id(e);
 		se->segment = s;
 		seglist_start_iter(SEGMENT_LIST, LIST_FIRST);
@@ -263,7 +266,7 @@ segmenter_t *find_seg_entry(cue_entry_t * e)
 		se = seglist_next_iter(SEGMENT_LIST);
 	}
 	log_debug3("found segment %p for id %s", se, id);
-	free(id);
+	mc_free(id);
 	seglist_unlock(SEGMENT_LIST);
 	if (se == NULL) {
 		return NULL;
@@ -293,15 +296,15 @@ typedef struct {
 	int open_count;
 } data_entry_t;
 
-static data_entry_t *data_entry_new(const char *path, cue_entry_t * entry, struct stat *st)
+static data_entry_t *mydata_entry_new(const char *path, cue_entry_t * entry, struct stat *st)
 {
-	data_entry_t *e = (data_entry_t *) malloc(sizeof(data_entry_t));
-	e->path = strdup(path);
+	data_entry_t *e = (data_entry_t *) mc_malloc(sizeof(data_entry_t));
+	e->path = mc_strdup(path);
 	e->entry = entry;
 	e->open_count = 0;
 
 	if (st != NULL) {
-		struct stat *stn = (struct stat *)malloc(sizeof(struct stat));
+		struct stat *stn = (struct stat *)mc_malloc(sizeof(struct stat));
 		memcpy((void *)stn, (void *)st, sizeof(struct stat));
 		e->st = stn;
 	} else {
@@ -309,12 +312,15 @@ static data_entry_t *data_entry_new(const char *path, cue_entry_t * entry, struc
 	}
 }
 
+#define data_entry_new(p,e,s) (data_entry_t *) mc_take_over(mydata_entry_new(p,e,s))
+
 static void data_entry_destroy(data_entry_t * e)
 {
 	log_debug2("Destroying cue entry %s", cue_entry_title(e->entry));
 	cue_entry_destroy(e->entry);
-	free(e->path);
-	free(e->st);
+	mc_free(e->path);
+	mc_free(e->st);
+	mc_free(e);
 }
 
 static hash_data_t data_copy(data_entry_t * e)
@@ -324,6 +330,7 @@ static hash_data_t data_copy(data_entry_t * e)
 
 static void data_destroy(hash_data_t d)
 {
+  log_debug("Destroying data entry");
 	data_entry_t *e = (data_entry_t *) d;
 	data_entry_destroy(e);
 }
@@ -335,10 +342,10 @@ datahash *DATA = NULL;
 
 /***********************************************************************/
 
-char *make_path(const char *path)
+char *mymake_path(const char *path)
 {
 	int l = strlen(path) + strlen(BASEDIR) + 1;
-	char *np = (char *)malloc(l);
+	char *np = (char *)mc_malloc(l);
 	fprintf(stderr, "np=%p\n", np);
 	if (np == NULL) {
 		return np;
@@ -351,11 +358,13 @@ char *make_path(const char *path)
 	}
 }
 
+#define make_path(p) mc_take_over(mymake_path(p))
+
 char *make_rel_path2(const char *path, const char *file)
 {
 	int pl = strlen(path);
 	int l = strlen(path) + strlen("/") + strlen(file) + 1;
-	char *fp = (char *)malloc(l);
+	char *fp = (char *)mc_malloc(l);
 	if (fp == NULL) {
 		return NULL;
 	} else {
@@ -377,7 +386,7 @@ char *make_path2(const char *path, const char *file)
 		return np;
 	} else {
 		char *r = make_rel_path2(np, file);
-		free(np);
+		mc_free(np);
 		return r;
 	}
 }
@@ -410,7 +419,7 @@ static int isImage(const char *path)
 
 static char *stripExt(const char *_path, const char *ext)
 {
-	char *path = strdup(_path);
+	char *path = mc_strdup(_path);
 	if (path == NULL) {
 		return NULL;
 	} else if (isExt(path, ext)) {
@@ -424,7 +433,7 @@ static char *stripExt(const char *_path, const char *ext)
 
 static char *isCueFile(const char *full_path)
 {
-	char *fp = (char *)malloc(strlen(full_path) + strlen(".cue") + 1);
+	char *fp = (char *)mc_malloc(strlen(full_path) + strlen(".cue") + 1);
 	char *cues[] = { ".cue", ".Cue", ".cUe", ".cuE", ".CUe", ".CuE", ".cUE", ".CUE",
 		NULL
 	};
@@ -439,13 +448,13 @@ static char *isCueFile(const char *full_path)
 		}
 	}
 
-	free(fp);
+	mc_free(fp);
 
 	return NULL;
 }
 
 static char *getCueFileForTrack(const char *full_path_of_track, int with_ext) {
-  char *fp = (char *)malloc(strlen(full_path_of_track) + strlen(".cue") + 1);
+  char *fp = (char *)mc_malloc(strlen(full_path_of_track) + strlen(".cue") + 1);
   strcpy(fp, full_path_of_track);
   int i,N;
   for(N = strlen(fp), i = N-1; i >= 0 && fp[i] != '/'; --i);
@@ -514,7 +523,7 @@ static cue_t *mp3cue_readcue_in_hash(const char *path, int update_data)
 	char *fullpath = make_path(path);
 	char *cuefile = isCueFile(fullpath);
 	log_debug3("reading cuefile %s for %s", cuefile, fullpath);
-	cue_t *cue = cue_new(cuefile);
+	cue_t *cue = (cue_t *) mc_take_over(cue_new(cuefile));
 	struct stat st;
 	stat(cuefile, &st);
 	MK_READONLY(st);
@@ -553,18 +562,18 @@ static cue_t *mp3cue_readcue_in_hash(const char *path, int update_data)
 				added = 1;
 			}
 
-			free(p);
+			mc_free(p);
 		}
 
 		if (added) {
-			free(cuefile);
-			free(fullpath);
+			mc_free(cuefile);
+			mc_free(fullpath);
 			return mp3cue_readcue_in_hash(path, false);
 		}
 	}
 
-	free(cuefile);
-	free(fullpath);
+	mc_free(cuefile);
+	mc_free(fullpath);
 	return cue;
 }
 
@@ -594,8 +603,8 @@ static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler, o
 
 	cue_destroy(cue);
 
-	free(cuefile);
-	free(fullpath);
+	mc_free(cuefile);
+	mc_free(fullpath);
 
 	return 0;
 }
@@ -616,10 +625,11 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
 		PMK_READONLY(stbuf);
 		stbuf->st_mode -= S_IFREG;
 		stbuf->st_mode += S_IFDIR;
-		free(fullpath);
-		free(cue);
+		mc_free(fullpath);
+		mc_free(cue);
 		DE_MONITOR(
-      mp3cue_readcue_in_hash(path, false);
+      cue_t *cue=mp3cue_readcue_in_hash(path, false);
+      cue_destroy(cue);
     );
 		return ret;
 
@@ -641,11 +651,11 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
                       (int) st.st_mtime,
                       (int) d->st->st_mtime
                       );
-          free(cue);
+          mc_free(cue);
           if (st.st_mtime != d->st->st_mtime) {
             char *cpath = getCueFileForTrack(path, false);
             mp3cue_readcue_in_hash(cpath, true); // replace cue in hash
-            free(cpath);
+            mc_free(cpath);
           }
         }
         // check if we already have the size
@@ -661,13 +671,13 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
         log_debug3("for filename %s, size=%d",
              cue_audio_file(cue_entry_sheet(d->entry)), (int) d->st->st_size);
         memcpy(stbuf, d->st, sizeof(struct stat));
-        free(fullpath);
+        mc_free(fullpath);
       ); // end monitor
 			return 0;
 		} else {
 			int ret = stat(fullpath, stbuf);
 			PMK_READONLY(stbuf);
-			free(fullpath);
+			mc_free(fullpath);
 			return ret;
 		}
 	}
@@ -685,8 +695,8 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
 	char *cue = isCueFile(fullpath);
 	if (cue != NULL) {
 		log_debug2("mp3cue_readdir iscuefile %s", cue);
-		free(cue);
-		free(fullpath);
+		mc_free(cue);
+		mc_free(fullpath);
 		int retval;
 		DE_MONITOR(
       retval=mp3cue_readcue(path, buf, filler, offset, fi);
@@ -697,7 +707,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
 	DIR *dh = opendir(fullpath);
 	if (dh == NULL) {
 		log_debug2("opendir %s returns NULL!", fullpath);
-		free(fullpath);
+		mc_free(fullpath);
 		return errno;
 	} else {
 		struct dirent *de;
@@ -725,7 +735,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
 								st.st_mode += S_IFDIR;
 								log_debug2("adding cue file %s", dr);
 								filler(buf, dr, &st, 0);
-								free(dr);
+								mc_free(dr);
 							}
 							break;
 						}
@@ -733,21 +743,21 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
 							//char *dr=make_rel_path2(path,de->d_name);
 							//if (dr==NULL) { return ENOMEM; }
 							filler(buf, de->d_name, &st, 0);
-							//free(dr);
+							//mc_free(dr);
 							break;
 						}
 					default:
 						break;
 					}
 				}
-				free(pf);
+				mc_free(pf);
 			} else {
 				// skip
 			}
 		}
 		closedir(dh);
 	}
-	free(fullpath);
+	mc_free(fullpath);
 
 	return 0;
 }
@@ -760,8 +770,8 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 	if (cue != NULL) {
 		int ret = -EISDIR;
 		fi->fh = 0;
-		free(fullpath);
-		free(cue);
+		mc_free(fullpath);
+		mc_free(cue);
 		return ret;
 	} else {
 		data_entry_t *d = datahash_get(DATA, fullpath);
@@ -775,7 +785,7 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
         if (segmenter_stream(s) == NULL) {
           if (segmenter_open(s) != SEGMENTER_OK) {
             log_debug2("Cannot open segment %s", cue_entry_vfile(d->entry));
-            free(fullpath);
+            mc_free(fullpath);
             retval = -EPERM;
           }
         }
@@ -783,14 +793,14 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
           FILE *f = segmenter_stream(s);
           fi->fh = fileno(f);
           d->open_count += 1;
-          free(fullpath);
+          mc_free(fullpath);
         }
       );
       return retval;
 		} else {
 			fi->fh = 0;
 			int ret = -EISDIR;
-			free(fullpath);
+			mc_free(fullpath);
 			return ret;
 		}
 	}
@@ -804,6 +814,7 @@ static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset, s
 	} else {
 		char *fullpath = make_path(path);
 		data_entry_t *d = datahash_get(DATA, fullpath);
+		mc_free(fullpath);
 		log_debug2("found d=%p", d);
 		if (d != NULL) {
 		  DE_MONITOR(
@@ -843,8 +854,10 @@ static int mp3cue_release(const char *path, struct fuse_file_info *fi)
 				segmenter_close(s);
 				fi->fh = 0;
 			}
+			mc_free(fullpath);
 			return 0;
 		} else {
+		  mc_free(fullpath);
 			return -EIO;
 		}
 	}
@@ -880,6 +893,8 @@ inline extern int log_this_severity(int severity)
 int main(int argc, char *argv[])
 {
 	// Initialize
+	mc_init();
+
 	DATA = datahash_new(100, HASH_CASE_SENSITIVE);
 	SEGMENT_LIST = seglist_new();
 	SIZE_HASH = vfilesize_hash_new(100, HASH_CASE_SENSITIVE);
@@ -921,10 +936,10 @@ int main(int argc, char *argv[])
 	int retval = -1;
 
 	if (optind < argc) {
-		BASEDIR = strdup(argv[optind++]);
+		BASEDIR = mc_strdup(argv[optind++]);
 		if (optind < argc) {
 			int fargc;
-			char **fargv = (char **)malloc(sizeof(char *) * (argc - optind + 2));
+			char **fargv = (char **)mc_malloc(sizeof(char *) * (argc - optind + 2));
 			int k = 1;
 			fargv[0] = argv[0];
 			while (optind < argc) {
@@ -933,6 +948,7 @@ int main(int argc, char *argv[])
 			fargv[k] = NULL;
 			fargc = k;
 			retval = fuse_main(fargc, fargv, &mp3cue_oper, NULL);
+			mc_free(fargv);
 		} else {
 			retval = usage(argv[0]);
 		}
@@ -945,9 +961,14 @@ int main(int argc, char *argv[])
 
 	// Destroy
 
+  log_info("destroying DATA hash");
 	datahash_destroy(DATA);
+	log_info("destroying SEGMENT_LIST");
 	seglist_destroy(SEGMENT_LIST);
+	log_info("destroying SIZE_HASH");
 	vfilesize_hash_destroy(SIZE_HASH);
+	log_info("destroying BASEDIR");
+	mc_free(BASEDIR);
 
 	return retval;
 

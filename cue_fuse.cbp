@@ -22,7 +22,9 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="Makefile" />
 		<Unit filename="TODO" />
+		<Unit filename="src/Makefile" />
 		<Unit filename="src/cue.c">
 			<Option compilerVar="CC" />
 		</Unit>
