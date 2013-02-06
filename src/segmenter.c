@@ -275,6 +275,13 @@ void segmenter_destroy(segmenter_t * S)
 
 int segmenter_create(segmenter_t * S)
 {
+  // assert that this segment isn't opened.
+  int reopen=0;
+  if (segmenter_stream(S) != NULL) {
+    reopen=1;
+    segmenter_close(S);
+  }
+
 	char *filename = S->segment.filename;
 	char *ext = getExt(filename);
 	if (ext == NULL) {
@@ -290,6 +297,10 @@ int segmenter_create(segmenter_t * S)
 		free(ext);
 		S->last_result = SEGMENTER_ERR_FILETYPE;
 		return S->last_result;
+	}
+
+	if (reopen) {
+	  segmenter_open(S);
 	}
 }
 

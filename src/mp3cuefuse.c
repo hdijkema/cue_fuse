@@ -468,7 +468,6 @@ static segmenter_t *get_segment(cue_entry_t * e, int update)
 	segmenter_t *se = find_seg_entry(e);
 	if (se != NULL) {
 	  if (update) {
-	    log_info("creating segment again");
 	    segmenter_create(se);
 	  }
 		return se;
@@ -770,8 +769,9 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
 		if (d != NULL) {
 		  int retval=0;
 		  DE_MONITOR(
-        log_info("getting segment");
-        segmenter_t *s = get_segment(d->entry, cue_entry_audio_changed(d->entry) );
+        int update = cue_entry_audio_changed(d->entry);
+        segmenter_t *s = get_segment(d->entry, update );
+        if (update) { cue_entry_audio_update_mtime(d->entry); }
         if (segmenter_stream(s) == NULL) {
           if (segmenter_open(s) != SEGMENTER_OK) {
             log_debug2("Cannot open segment %s", cue_entry_vfile(d->entry));

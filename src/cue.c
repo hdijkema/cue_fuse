@@ -226,6 +226,8 @@ cue_t *cue_new(const char *file)
 	r->_errno = 0;
 
 	FILE *f = fopen(file, "rt");
+	time_t _audio_mtime=0;
+
 	if (f == NULL) {
 		r->_errno = ENOFILECUE;
 	} else {
@@ -272,6 +274,14 @@ cue_t *cue_new(const char *file)
 						} else {
 							r->audio_file = af;
 						}
+            // We have a full path audio file now.
+            // get the mtime.
+            {
+              struct stat st;
+              stat(r->audio_file,&st);
+              _audio_mtime=st.st_mtime;
+            }
+
 						free(fl);
 					} else if (eq(line, "rem")) {
 						if (eq(&line[3], "date")) {
@@ -299,6 +309,7 @@ cue_t *cue_new(const char *file)
 							addEntry(r, entry);
 						}
 						entry = cue_entry_new(r);
+						entry->audio_mtime=_audio_mtime;
 						entry->year = mystrdup(year);
 						entry->performer = mystrdup(r->album_performer);
 						entry->composer = mystrdup(r->album_composer);
@@ -338,13 +349,6 @@ cue_t *cue_new(const char *file)
 		free(year);
 		free(image);
 
-		// We have a full path audio file now.
-		// get the mtime.
-		{
-		  struct stat st;
-		  stat(r->audio_file,&st);
-		  r->audio_mtime=st.st_mtime;
-		}
 
 		{
 			int i, N;
@@ -418,10 +422,6 @@ const char *cue_genre(cue_t * cue)
 const char *cue_audio_file(cue_t * cue)
 {
 	return T(cue->audio_file);
-}
-
-time_t cue_audio_mtime(cue_t * cue) {
-  return cue->audio_mtime;
 }
 
 int cue_count(cue_t * cue)
@@ -544,15 +544,20 @@ void cue_entry_destroy(cue_entry_t * ce)
 
 int cue_entry_audio_changed(cue_entry_t *ce) {
   struct stat st;
-  char *af=cue_audio_file(cue_entry_sheet(ce));
+  const char *af=cue_audio_file(cue_entry_sheet(ce));
   stat(af,&st);
-  time_t at=cue_audio_mtime(cue_entry_sheet(ce));
+  time_t at=ce->audio_mtime;
   if (at!=st.st_mtime) {
-    log_info("audio changed!");
-    cue_t *sheet=cue_entry_sheet(ce);
-    sheet->audio_mtime=st.st_mtime;
     return 1;
   } else {
     return 0;
   }
 }
+
+void cue_entry_audio_update_mtime(cue_entry_t *ce) {
+  struct stat st;
+  const char *af=cue_audio_file(cue_entry_sheet(ce));
+  stat(af,&st);
+  ce->audio_mtime=st.st_mtime;
+}
+
