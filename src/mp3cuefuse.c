@@ -38,7 +38,7 @@
 #include <elementals/log.h>
 #include <elementals/list.h>
 #include <elementals/memcheck.h>
-//#include <elementals/os.h>
+#include <elementals/os.h>
 
 #define MKR(st,A) if (st.st_mode&A) { log_debug("modeadjust");st.st_mode-=A; }
 #define MK_READONLY(st) MKR(st,S_IWUSR);MKR(st,S_IWGRP);MKR(st,S_IWOTH);
@@ -313,6 +313,8 @@ static data_entry_t *mydata_entry_new(const char *path, cue_entry_t * entry, str
   } else {
     e->st = NULL;
   }
+
+  return e;
 }
 
 #define data_entry_new(p,e,s) (data_entry_t *) mc_take_over(mydata_entry_new(p,e,s))
@@ -888,6 +890,7 @@ extern FILE *log_handle()
 inline extern int log_this_severity(int severity)
 {
   int retval = (severity > LOG_DEBUG);
+  //int retval=1;
   return retval;
 }
 

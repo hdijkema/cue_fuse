@@ -12,6 +12,7 @@ do
   else 
     if [ "$MEM" = "1" ]; then
       MEMORY=$OPT
+      MEM=0
     else
       if [ "$DIR" = "" ]; then
         DIR="$OPT"
@@ -19,7 +20,7 @@ do
         if [ "$MOUNTPOINT" = "" ]; then
           MOUNTPOINT="$OPT"
         else 
-          echo "usage: mp3cuefuse <source directory> <mount point>"
+          echo "usage: mp3cuefuse [-m <MB>] <source directory> <mount point>"
           exit 1
         fi
       fi
@@ -29,6 +30,6 @@ done
 
 BN=`basename $0`
 DN=`dirname $0`
-
+echo "mounting '$DIR' to '$MOUNTPOINT' with cache of $MEMORY MB"
 LD_LIBRARY_PATH="$DN/mp3splt_sup/lib:$DN/mp3splt_sup/lib/libmp3splt0" mp3cuefuse_bin -m $MEMORY "$DIR" "$MOUNTPOINT" -o allow_other
 
