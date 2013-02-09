@@ -23,11 +23,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <malloc.h>
 #include <libmp3splt/mp3splt.h>
 #include <id3tag.h>
-#include "log.h"
-#include "memcheck.h"
+#include <elementals/log.h>
+#include <elementals/memcheck.h>
 
 //#define SEGMENT_USING_FILE
 #define GARD_WITH_MUTEX

@@ -30,12 +30,15 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <stdlib.h>
-#include "hash.h"
+
 #include "cue.h"
 #include "segmenter.h"
-#include "log.h"
-#include "list.h"
-#include "memcheck.h"
+
+#include <elementals/hash.h>
+#include <elementals/log.h>
+#include <elementals/list.h>
+#include <elementals/memcheck.h>
+//#include <elementals/os.h>
 
 #define MKR(st,A) if (st.st_mode&A) { log_debug("modeadjust");st.st_mode-=A; }
 #define MK_READONLY(st) MKR(st,S_IWUSR);MKR(st,S_IWGRP);MKR(st,S_IWOTH);
@@ -176,15 +179,15 @@ void write_sizes(const char * to_file) {
   fputs(VFILESIZE_FILE_VERSION /**/ "\n", f);
   hash_iter_t it;
   it = vfilesize_hash_iter(SIZE_HASH);
-  while (!hash_iter_end(it)) {
-    vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, hash_iter_key(it) );
+  while (!vfilesize_hash_iter_end(it)) {
+    vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfilesize_hash_iter_key(it) );
     if (e != NULL) {
-      fprintf(f, "%s\n%lu\n%lu\n", hash_iter_key(it),
+      fprintf(f, "%s\n%lu\n%lu\n", vfilesize_hash_iter_key(it),
                   (unsigned long) e->size, (unsigned long) e->mtime );
     } else {
       log_debug("Unexpected!");
     }
-    it = hash_iter_next(it);
+    it = vfilesize_hash_iter_next(it);
   }
   fclose(f);
 }

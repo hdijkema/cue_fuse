@@ -20,11 +20,10 @@
 
 #include "cue.h"
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
-#include "log.h"
-#include "memcheck.h"
+#include <elementals/log.h>
+#include <elementals/memcheck.h>
 
 #define T(a)  (a==NULL) ? "" : a
 

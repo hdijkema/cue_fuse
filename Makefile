@@ -4,19 +4,12 @@ PREFIX=/usr/local
 
 all: bin/mp3cuefuse 
 
-bin/mp3cuefuse: elementals/libelementals.a mp3cuefuse mp3splt_sup/lib/libpm3splt.so
+bin/mp3cuefuse: mp3cuefuse mp3splt_sup/lib/libpm3splt.so
 	(cd src; make)
 	mkdir -p bin
 	mv src/mp3cuefuse_bin bin
 	cp mp3cuefuse bin
 
-elementals/libelementals.a: elementals
-	(cd elementals;git pull)
-	(cd elementals;make)
-
-elementals:
-	git clone git://github.com/hoesterholt/elementals.git
-	
 mp3splt_sup/lib/libpm3splt.so: mp3splt_sup libmp3splt/src/.libs/libmp3splt.so
 	(cd libmp3splt;make)
 	(cd libmp3splt;make install)
@@ -46,7 +39,6 @@ install: bin/mp3cuefuse
 clean:
 	rm -rf bin *~
 	(cd src;make clean)
-	(cd elementals; make clean)
 	if [ -d libmp3splt ]; then cd libmp3splt; make clean;rm -f config.status; fi
 	rm -rf mp3splt_sup
 

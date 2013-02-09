@@ -9,10 +9,10 @@ MP3SPLT_LDFLAGS=-L../mp3splt_sup/lib -lmp3splt
 
 CC=cc
 #CFLAGS=-c -I../elementals -DUSE_MEMCHECK $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
-CFLAGS=-c -I../elementals $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
-LDFLAGS=$(FUSE_LDFLAGS) $(MP3SPLT_LDFLAGS) -L../elementals -lelementals
+CFLAGS=-c -O2 $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
+LDFLAGS=$(FUSE_LDFLAGS) $(MP3SPLT_LDFLAGS) -lelementals
 
-all: mp3cuefuse ../elementals/libelementals.a
+all: mp3cuefuse 
 	mv mp3cuefuse mp3cuefuse_bin
 
 mp3cuefuse: mp3cuefuse.o cue.o segmenter.o
@@ -32,9 +32,6 @@ test_seg: test_seg.o segmenter.o
 
 test_seg.o : test_seg.c
 	$(CC) $(CFLAGS) test_seg.c
-
-../elementals/libelementals.a:
-	(cd ../elementals;make)
 
 minimal: minimal.c
 	$(CC) $(CFLAGS) minimal.c
