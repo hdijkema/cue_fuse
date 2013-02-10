@@ -889,8 +889,8 @@ extern FILE *log_handle()
 
 inline extern int log_this_severity(int severity)
 {
-  int retval = (severity > LOG_DEBUG);
-  //int retval=1;
+  //int retval = (severity > LOG_DEBUG);
+  int retval=1;
   return retval;
 }
 
@@ -953,7 +953,9 @@ int main(int argc, char *argv[])
       }
       fargv[k] = NULL;
       fargc = k;
+      log_info("Starting fuse_main");
       retval = fuse_main(fargc, fargv, &mp3cue_oper, NULL);
+      log_info2("Retval of fuse_main = %d",retval);
       mc_free(fargv);
     } else {
       retval = usage(argv[0]);
