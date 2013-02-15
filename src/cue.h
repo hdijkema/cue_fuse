@@ -62,6 +62,7 @@ void cue_destroy(cue_t *);
 
 int cue_valid(cue_t *);
 int cue_errno(cue_t *);
+int cue_count(cue_t *);
 
 const char *cue_file(cue_t * cue);
 const char *cue_album_title(cue_t * cue);

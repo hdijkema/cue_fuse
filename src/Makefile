@@ -1,9 +1,9 @@
 
-FUSE_CFLAGS=$(shell pkg-config --cflags fuse)
-FUSE_LDFLAGS=$(shell pkg-config --libs fuse)
+FUSE_CFLAGS=-I/usr/local/include/osxfuse -D_FILE_OFFSET_BITS=64
+FUSE_LDFLAGS=/usr/local/lib -lfuse
 
-MP3SPLT_CFLAGS=-I../mp3splt_sup/include
-MP3SPLT_LDFLAGS=-L../mp3splt_sup/lib -lmp3splt
+MP3SPLT_CFLAGS=-I/Users/oesterholt/software/cf/include
+MP3SPLT_LDFLAGS=-L/Users/oesterholt/software/cf/lib -lmp3splt
 #MP3SPLT_CFLAGS=-I/usr/local/include
 #MP3SPLT_LDFLAGS=-L/usr/local/lib -lmp3splt
 
