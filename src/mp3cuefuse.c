@@ -83,10 +83,11 @@ typedef struct {
   time_t mtime;
 } vfile_size_t;
 
-hash_data_t vfile_size_copy(vfile_size_t *e) {
+vfile_size_t *vfile_size_copy(vfile_size_t *e) {
   vfile_size_t *fs=(vfile_size_t *) mc_malloc(sizeof(vfile_size_t));
   fs->size=e->size;
   fs->mtime=e->mtime;
+  return fs;
 }
 
 void vfile_size_destroy(hash_data_t d) {
@@ -237,7 +238,7 @@ void add_seg_entry(cue_entry_t * e, segmenter_t * s)
     while (((int)count_mb) > MAX_MEM_USAGE_IN_MB && k < 5) {
       se = seglist_start_iter(SEGMENT_LIST, LIST_LAST);
       if (se != NULL) {
-        if (segmenter_stream(se->segment) == NULL) {
+        if (!segmenter_stream(se->segment)) {
           count_mb -= segmenter_size(se->segment) / (1024.0 * 1024.0);
           seglist_drop_iter(SEGMENT_LIST);
           k = 0;
@@ -258,6 +259,25 @@ void add_seg_entry(cue_entry_t * e, segmenter_t * s)
   }
   log_debug("unlock segmentlist");
   seglist_unlock(SEGMENT_LIST);
+  {
+    // report 
+    seglist_lock(SEGMENT_LIST);
+    int n = seglist_count(SEGMENT_LIST);
+    int i;
+    seg_entry_t *se = seglist_start_iter(SEGMENT_LIST, LIST_FIRST);
+    log_debug("Segment report - begin");
+    int total = 0;
+    while (se != NULL) {
+       log_debug2("se = %p",se);
+       int mb = segmenter_size(se->segment) / (1024.0 * 1024.0);
+       total += mb;
+       log_debug5("segment: %s, %d, %d, %d\n", segmenter_title(se->segment), mb, total, segmenter_stream(se->segment));
+       se = seglist_next_iter(SEGMENT_LIST);
+    }
+    log_debug2("Segment report - end %d", total);
+  
+    seglist_unlock(SEGMENT_LIST);
+  }
 }
 
 segmenter_t *find_seg_entry(cue_entry_t * e)
@@ -630,6 +650,8 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
     PMK_READONLY(stbuf);
     stbuf->st_mode -= S_IFREG;
     stbuf->st_mode += S_IFDIR;
+    stbuf->st_mode |= S_IXUSR;
+    stbuf->st_mode |= S_IXGRP;
     mc_free(fullpath);
     mc_free(cue);
     DE_MONITOR(
@@ -787,7 +809,7 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
         int update = cue_entry_audio_changed(d->entry);
         segmenter_t *s = get_segment(d->entry, update );
         if (update) { cue_entry_audio_update_mtime(d->entry); }
-        if (segmenter_stream(s) == NULL) {
+        if (!segmenter_stream(s)) {
           if (segmenter_open(s) != SEGMENTER_OK) {
             log_debug2("Cannot open segment %s", cue_entry_vfile(d->entry));
             mc_free(fullpath);
@@ -795,8 +817,9 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
           }
         }
         if (retval == 0) {
-          FILE *f = segmenter_stream(s);
-          fi->fh = fileno(f);
+          /*FILE *f = segmenter_stream(s);
+          fi->fh = fileno(f);*/
+          fi->fh = 1;
           d->open_count += 1;
           mc_free(fullpath);
         }
@@ -824,13 +847,12 @@ static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset, s
     if (d != NULL) {
       DE_MONITOR(
         segmenter_t *s = get_segment(d->entry, false);
-        FILE *f = segmenter_stream(s);
       );
-      if (f == NULL) {
+      if (!segmenter_stream(s)) {
         return -EIO;
       } else {
-        fseek(f, offset, SEEK_SET);
-        int bytes = fread(buf, 1, size, f);
+	segmenter_seek(s, offset);
+        int bytes = segmenter_read(s,buf, size);
         return bytes;
       }
     } else {

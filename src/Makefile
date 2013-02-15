@@ -1,6 +1,6 @@
 
 FUSE_CFLAGS=-I/usr/local/include/osxfuse -D_FILE_OFFSET_BITS=64
-FUSE_LDFLAGS=/usr/local/lib -lfuse
+FUSE_LDFLAGS=-L/usr/local/lib -losxfuse 
 
 MP3SPLT_CFLAGS=-I/Users/oesterholt/software/cf/include
 MP3SPLT_LDFLAGS=-L/Users/oesterholt/software/cf/lib -lmp3splt

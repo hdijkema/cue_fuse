@@ -21,6 +21,7 @@
 #define __SEGMENTER__HOD
 
 #include <stdio.h>
+#include <elementals/memblock.h>
 
 typedef struct {
   int track, year, begin_offset_in_ms, end_offset_in_ms;
@@ -29,11 +30,10 @@ typedef struct {
 } segment_t;
 
 typedef struct {
-  void *memory_block;
-  size_t size;
+  memblock_t *blk;
   int last_result;
-  FILE *stream;
   segment_t segment;
+  int stream;
 } segmenter_t;
 
 #define SEGMENTER_OK        0
@@ -65,7 +65,10 @@ int segmenter_create(segmenter_t * S);
 int segmenter_open(segmenter_t * S);
 size_t segmenter_size(segmenter_t * S);
 int segmenter_close(segmenter_t * S);
-FILE *segmenter_stream(segmenter_t * S);
+int segmenter_stream(segmenter_t * S);
 int segmenter_retcode(segmenter_t * S);
+int segmenter_read(segmenter_t * S, void *mem, size_t size);
+void segmenter_seek(segmenter_t * S, off_t pos);
+const char *segmenter_title(segmenter_t *S);
 
 #endif

@@ -27,6 +27,7 @@
 #include <id3tag.h>
 #include <elementals/log.h>
 #include <elementals/memcheck.h>
+#include <elementals/memblock.h>
 
 //#define SEGMENT_USING_FILE
 #define GARD_WITH_MUTEX
@@ -61,15 +62,11 @@ static void replace(char **s, const char *n)
 
 /**********************************************************************/
 
-#ifndef SEGMENT_USING_FILE
 static void mp3splt_writer(const void *ptr, size_t size, size_t nmemb, void *cb_data)
 {
-  FILE *f = (FILE *) cb_data;
-  fwrite(ptr, size, nmemb, f);
+  memblock_t *f = (memblock_t *) cb_data;
+  memblock_write(f, ptr, size * nmemb);
 }
-#else
-static int splitnr = 0;
-#endif
 
 /**********************************************************************/
 
@@ -79,12 +76,7 @@ static int mp3splt(segmenter_t * S)
 
   //log_debug("mp3splt_split: entered");
 
-  mc_free(S->memory_block);
-  S->size = -1;
-  S->memory_block = NULL;
-#ifndef SEGMENT_USING_FILE
-  FILE *f = open_memstream((char **)&S->memory_block, &S->size);
-#endif
+  memblock_clear(S->blk);
 
   int begin_offset_in_hs = S->segment.begin_offset_in_ms / 10;
   int end_offset_in_hs = -1;
@@ -106,20 +98,13 @@ static int mp3splt(segmenter_t * S)
   // Set filename to split and pretend mode, for memory based splitting
   mp3splt_set_filename_to_split(state, S->segment.filename);
   //log_debug("filename to split set");
-#ifndef SEGMENT_USING_FILE
   mp3splt_set_int_option(state, SPLT_OPT_PRETEND_TO_SPLIT, SPLT_TRUE);
-  mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer, (void *)f);
+  mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer, (void *) S->blk);
   //log_debug("pretend split and write function set");
-#endif
 
   // Create splitpoints
   splt_point *point = mp3splt_point_new(begin_offset_in_hs, NULL);
   mp3splt_point_set_type(point, SPLT_SPLITPOINT);
-#ifdef SEGMENT_USING_FILE
-  char buf[20];
-  sprintf(buf, "mp3cue%09d", ++splitnr);
-  mp3splt_point_set_name(point, buf);
-#endif
   mp3splt_append_splitpoint(state, point);
 
   splt_point *skip = mp3splt_point_new(end_offset_in_hs, NULL);
@@ -167,27 +152,7 @@ static int mp3splt(segmenter_t * S)
   //log_debug("state freeed");
   log_debug2("mp3splt_split: result=%d", error);
 
-#ifndef SEGMENT_USING_FILE
-  fclose(f);
-  mc_take_control(S->memory_block, S->size);
-  //log_debug("memory file closed");
-#endif
-
   if (error == SPLT_OK_SPLIT || error == SPLT_OK_SPLIT_EOF) {
-#ifdef SEGMENT_USING_FILE
-    char fn[250];
-    sprintf(fn, "/tmp/%s.%s", buf, ext);
-    FILE *f = fopen(fn, "rb");
-    FILE *g = open_memstream((char **)&S->memory_block, &S->size);
-    int size;
-    char fbuf[10240];
-    while ((size = fread(fbuf, 1, 10240, f)) > 0) {
-      fwrite(fbuf, size, 1, g);
-    }
-    fclose(f);
-    fclose(g);
-    unlink(fn);
-#endif
     mc_free(ext);
     return SEGMENTER_OK;
   } else {
@@ -228,8 +193,8 @@ static int split_ogg(segmenter_t * S)
 segmenter_t *segmenter_new()
 {
   segmenter_t *s = (segmenter_t *) mc_malloc(sizeof(segmenter_t));
-  s->memory_block = NULL;
-  s->size = -1;
+  s->blk = memblock_new();
+  s->stream = 0;
   s->last_result = SEGMENTER_NONE;
   s->segment.filename = mc_strdup("");
   s->segment.artist = mc_strdup("");
@@ -240,7 +205,6 @@ segmenter_t *segmenter_new()
   s->segment.comment = mc_strdup("");
   s->segment.genre = mc_strdup("");
   s->segment.track = -1;
-  s->stream = NULL;
   return s;
 }
 
@@ -259,10 +223,8 @@ int segmenter_can_segment(segmenter_t * S, const char *filename)
 
 void segmenter_destroy(segmenter_t * S)
 {
-  if (S->stream != NULL) {
-    fclose(S->stream);
-  }
-  mc_free(S->memory_block);
+  memblock_destroy(S->blk);
+  S->stream = 0;
   mc_free(S->segment.title);
   mc_free(S->segment.artist);
   mc_free(S->segment.album);
@@ -278,7 +240,7 @@ int segmenter_create(segmenter_t * S)
 {
   // assert that this segment isn't opened.
   int reopen=0;
-  if (segmenter_stream(S) != NULL) {
+  if (segmenter_stream(S)) {
     reopen=1;
     segmenter_close(S);
   }
@@ -307,13 +269,13 @@ int segmenter_create(segmenter_t * S)
 
 int segmenter_open(segmenter_t * S)
 {
-  if (S->memory_block == NULL) {
+  if (memblock_size(S->blk) == 0) {
     S->last_result = SEGMENTER_ERR_NOSEGMENT;
-    S->stream = NULL;
-    S->last_result;
+    S->stream = 0;
+    return S->last_result;
   } else {
-    S->stream = fmemopen(S->memory_block, S->size, "rb");
-    if (S->stream != NULL) {
+    S->stream = 1;
+    if (S->stream) {
       S->last_result = SEGMENTER_OK;
     } else {
       S->last_result = SEGMENTER_ERR_FILEOPEN;
@@ -324,9 +286,8 @@ int segmenter_open(segmenter_t * S)
 
 int segmenter_close(segmenter_t * S)
 {
-  if (S->stream != NULL) {
-    fclose(S->stream);
-    S->stream = NULL;
+  if (S->stream) {
+    S->stream = 0;
     S->last_result = SEGMENTER_OK;
   } else {
     S->last_result = SEGMENTER_ERR_NOSTREAM;
@@ -334,7 +295,7 @@ int segmenter_close(segmenter_t * S)
   return S->last_result;
 }
 
-FILE *segmenter_stream(segmenter_t * S)
+int segmenter_stream(segmenter_t * S)
 {
   return S->stream;
 }
@@ -366,10 +327,22 @@ void segmenter_prepare(segmenter_t * S,
 
 size_t segmenter_size(segmenter_t * S)
 {
-  return S->size;
+  return memblock_size(S->blk);
 }
 
 int segmenter_retcode(segmenter_t * S)
 {
   return S->last_result;
+}
+
+int segmenter_read(segmenter_t *S, void *mem, size_t size) {
+  return (int) memblock_read(S->blk, mem, size);
+}
+
+void segmenter_seek(segmenter_t *S, off_t pos) {
+  memblock_seek(S->blk, pos);
+}
+
+const char *segmenter_title(segmenter_t *s) {
+  return s->segment.title;
 }
