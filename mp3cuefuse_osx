@@ -1,0 +1,38 @@
+#!/bin/bash
+
+MYDIR=`echo $0 | sed -e 's%/bin/mp3cuefuse_osx%%'`
+MEMORY=150
+DIR=""
+MOUNTPOINT=""
+
+MEM=0
+for OPT in $* 
+do
+  if [ "$OPT" = "-m" ]; then
+    MEM=1
+  else 
+    if [ "$MEM" = "1" ]; then
+      MEMORY=$OPT
+      MEM=0
+    else
+      if [ "$DIR" = "" ]; then
+        DIR="$OPT"
+      else 
+        if [ "$MOUNTPOINT" = "" ]; then
+          MOUNTPOINT="$OPT"
+        else 
+          echo "usage: mp3cuefuse [-m <MB>] <source directory> <mount point>"
+          exit 1
+        fi
+      fi
+    fi
+  fi
+done
+
+BN=`basename $0`
+DN=`dirname $0`
+MP=`basename "$MOUNTPOINT"`
+echo "mounting '$DIR' to '$MOUNTPOINT' with cache of $MEMORY MB"
+export DYLD_FALLBACK_LIBRARY_PATH="$MYDIR/lib"
+exec $MYDIR/bin/mp3cuefuse_bin mp3cuefuse_bin -m $MEMORY "$DIR" "$MOUNTPOINT" -o volname="$MP"
+
