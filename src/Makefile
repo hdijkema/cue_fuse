@@ -38,4 +38,4 @@ minimal: minimal.c
 	$(CC) -o minimal minimal.o $(LDFLAGS)
 
 clean:
-	rm -f *.o *~ mp3cuefuse test_list test_seg minimal
+	rm -f *.o *~ mp3cuefuse test_list test_seg minimal mp3cuefuse_bin
