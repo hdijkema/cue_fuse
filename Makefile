@@ -1,6 +1,7 @@
 
 PWD=$(shell pwd)
 PREFIX=/usr/local
+INSTALL=/tmp/mp3cuefuse
 
 all: bin/mp3cuefuse 
 
@@ -47,12 +48,17 @@ distclean: clean
 
 osx: 
 	(cd src; make)
-	mkdir -p ~/tmp
-	rm -rf ~/tmp/Mp3CueFuse.app
-	mkdir ~/tmp/Mp3CueFuse.app
-	(cd ~/software/cf; tar cf - .) | (cd ~/tmp/Mp3CueFuse.app; tar xf - )
-	cp src/mp3cuefuse_bin ~/tmp/Mp3CueFuse.app/bin
-	cp mp3cuefuse_osx ~/tmp/Mp3CueFuse.app/bin
-	chmod 755 ~/tmp/Mp3CueFuse.app/bin/mp3cuefuse_osx
-	tar cf - Contents | (cd ~/tmp/Mp3CueFuse.app;tar xf -)
-	chmod 755 ~/tmp/Mp3CueFuse.app/Contents/MacOs/*
+	mkdir -p ${INSTALL}
+	rm -rf ${INSTALL}/Mp3CueFuse.app
+	mkdir ${INSTALL}/Mp3CueFuse.app
+	(cd ~/software/cf; tar cf - .) | (cd ${INSTALL}/Mp3CueFuse.app; tar xf - )
+	cp src/mp3cuefuse_bin ${INSTALL}/Mp3CueFuse.app/bin
+	cp mp3cuefuse_osx ${INSTALL}/Mp3CueFuse.app/bin
+	chmod 755 ${INSTALL}/Mp3CueFuse.app/bin/mp3cuefuse_osx
+	tar cf - Contents | (cd ${INSTALL}/Mp3CueFuse.app;tar xf -)
+	chmod 755 ${INSTALL}/Mp3CueFuse.app/Contents/MacOs/*
+
+dmg: osx
+        rm -f ${INSTALL}/Applications
+        ln -s /Applications ${INSTALL}/Applications
+        tools/create-dmg --window-size 400 200 --icon-size 96 --volname "Mp3CueFuse-${VERSION}" --icon "Mp3CueFuse.app" 50 10 --icon "Applications" 250 10 --vol-icns Contents/Resources/Mp3CueFuse.icns ~/Desktop/Mp3CueFuse-${VERSION}.dmg ${INSTALL}
