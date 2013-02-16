@@ -1,15 +1,20 @@
 
+OS=$(shell uname)
+
+ifeq ($(OS),Darwin)
 FUSE_CFLAGS=-I/usr/local/include/osxfuse -D_FILE_OFFSET_BITS=64
 FUSE_LDFLAGS=-L/usr/local/lib -losxfuse 
-
 MP3SPLT_CFLAGS=-I/Users/oesterholt/software/cf/include
 MP3SPLT_LDFLAGS=-L/Users/oesterholt/software/cf/lib -lmp3splt
-#MP3SPLT_CFLAGS=-I/usr/local/include
-#MP3SPLT_LDFLAGS=-L/usr/local/lib -lmp3splt
+else 
+FUSE_CFLAGS=$(shell pkg-config --cflags fuse)
+FUSE_LDFLAGS=$(shell pkg-config --libs fuse)
+MP3SPLT_CFLAGS=-I../mp3splt_sup//include
+MP3SPLT_LDFLAGS=-L../mp3splt_sup//lib -lmp3splt
+endif
 
 CC=cc
-#CFLAGS=-c -I../elementals -DUSE_MEMCHECK $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
-CFLAGS=-c -O2 -DUSE_MEMCHECK $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
+CFLAGS=-c -O2 $(FUSE_CFLAGS) $(MP3SPLT_CFLAGS)
 LDFLAGS=$(FUSE_LDFLAGS) $(MP3SPLT_LDFLAGS) -lelementals
 
 all: mp3cuefuse 
