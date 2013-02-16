@@ -44,5 +44,15 @@ clean:
 
 distclean: clean
 	rm -rf elementals 
-	
 
+osx: 
+	(cd src; make)
+	mkdir -p ~/tmp
+	rm -rf ~/tmp/Mp3CueFuse.app
+	mkdir ~/tmp/Mp3CueFuse.app
+	(cd ~/software/cf; tar cf - .) | (cd ~/tmp/Mp3CueFuse.app; tar xf - )
+	cp src/mp3cuefuse_bin ~/tmp/Mp3CueFuse.app/bin
+	cp mp3cuefuse_osx ~/tmp/Mp3CueFuse.app/bin
+	chmod 755 ~/tmp/Mp3CueFuse.app/bin/mp3cuefuse_osx
+	tar cf - Contents | (cd ~/tmp/Mp3CueFuse.app;tar xf -)
+	chmod 755 ~/tmp/Mp3CueFuse.app/Contents/MacOs/*
