@@ -2,6 +2,7 @@
 PWD=$(shell pwd)
 PREFIX=/usr/local
 INSTALL=/tmp/mp3cuefuse
+VERSION=0.1
 
 all: bin/mp3cuefuse 
 
@@ -59,6 +60,6 @@ osx:
 	chmod 755 ${INSTALL}/Mp3CueFuse.app/Contents/MacOs/*
 
 dmg: osx
-        rm -f ${INSTALL}/Applications
-        ln -s /Applications ${INSTALL}/Applications
-        tools/create-dmg --window-size 400 200 --icon-size 96 --volname "Mp3CueFuse-${VERSION}" --icon "Mp3CueFuse.app" 50 10 --icon "Applications" 250 10 --vol-icns Contents/Resources/Mp3CueFuse.icns ~/Desktop/Mp3CueFuse-${VERSION}.dmg ${INSTALL}
+	rm -f ${INSTALL}/Applications
+	ln -s /Applications ${INSTALL}/Applications
+	tools/create-dmg --window-size 400 200 --icon-size 96 --volname "Mp3CueFuse-${VERSION}" --icon "Mp3CueFuse.app" 50 10 --icon "Applications" 250 10 --vol-icns Contents/Resources/Mp3CueFuse.icns ~/Desktop/Mp3CueFuse-${VERSION}.dmg ${INSTALL}
