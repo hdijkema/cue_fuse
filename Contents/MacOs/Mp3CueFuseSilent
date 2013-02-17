@@ -1,6 +1,0 @@
-#!/bin/bash
-MYDIR=`dirname $0`
-if [ "$MYDIR" = "." ]; then
-  MYDIR=$PWD
-fi
-exec osascript $MYDIR/cue_fuse_starter.scpt $MYDIR/cue_fuse_setup_silent.scpt "$MYDIR"

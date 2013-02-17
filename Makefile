@@ -58,6 +58,7 @@ osx:
 	chmod 755 ${INSTALL}/Mp3CueFuse.app/bin/mp3cuefuse_osx
 	tar cf - Contents | (cd ${INSTALL}/Mp3CueFuse.app;tar xf -)
 	chmod 755 ${INSTALL}/Mp3CueFuse.app/Contents/MacOs/*
+	chmod 755 ${INSTALL}/Mp3CueFuse.app/Contents/Mp3CueFuseSilent.app/Contens/MacOs/*
 
 dmg: osx
 	rm -f ${INSTALL}/Applications
