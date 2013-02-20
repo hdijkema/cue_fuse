@@ -29,7 +29,6 @@
 #include <elementals/memcheck.h>
 #include <elementals/memblock.h>
 
-//#define SEGMENT_USING_FILE
 #define GARD_WITH_MUTEX
 
 #ifdef GARD_WITH_MUTEX
@@ -39,7 +38,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**********************************************************************/
 
-static char *getExt(const char *filename)
+static char* getExt(const char* filename)
 {
   int i = strlen(filename) - 1;
   for (; i >= 0 && filename[i] != '.'; i--) ;
@@ -50,7 +49,7 @@ static char *getExt(const char *filename)
   }
 }
 
-static void replace(char **s, const char *n)
+static void replace(char** s, const char* n)
 {
   mc_free(*s);
   if (n == NULL) {
@@ -62,20 +61,29 @@ static void replace(char **s, const char *n)
 
 /**********************************************************************/
 
-static void mp3splt_writer(const void *ptr, size_t size, size_t nmemb, void *cb_data)
+static void mp3splt_writer(const void* ptr, size_t size, size_t nmemb, void* cb_data)
 {
-  memblock_t *f = (memblock_t *) cb_data;
+  memblock_t* f = (memblock_t* ) cb_data;
   memblock_write(f, ptr, size * nmemb);
 }
 
 /**********************************************************************/
 
-static int mp3splt(segmenter_t * S)
+static int mp3splt_err(splt_state* state, splt_code error) {
+  if (state == NULL) {
+    return log_error2("segmenter: error %d", error);
+  } else {
+    log_error3("segmenter: error %d (%s)", error, mp3splt_get_strerror(state, error));
+    error = mp3splt_free_state(state);
+    if (error < 0) {
+      return log_error2("segmenter: free_state: error %d", error);
+    }
+  }
+  return SEGMENTER_ERR_CREATE;
+}
+
+static int mp3splt(segmenter_t* S)
 {
-  char *ext = getExt(S->segment.filename);
-
-  //log_debug("mp3splt_split: entered");
-
   memblock_clear(S->blk);
 
   int begin_offset_in_hs = S->segment.begin_offset_in_ms / 10;
@@ -83,86 +91,97 @@ static int mp3splt(segmenter_t * S)
   if (S->segment.end_offset_in_ms >= 0) {
     end_offset_in_hs = S->segment.end_offset_in_ms / 10;
   }
+  
+  splt_code error = SPLT_OK;
+  
   // Creating state
-  splt_state *state = mp3splt_new_state(NULL);
-  //log_debug("new state");
-  mp3splt_find_plugins(state);
-  //log_debug("plugins found");
+  splt_state* state = mp3splt_new_state(&error);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_find_plugins(state);
+  if (error<0) return mp3splt_err(state,error);
 
   // Set split path and custom name
-  mp3splt_set_path_of_split(state, "/tmp");
-  //log_debug("split path set");
-  mp3splt_set_int_option(state, SPLT_OPT_OUTPUT_FILENAMES, SPLT_OUTPUT_CUSTOM);
-  //log_debug("custom split set");
+  error = mp3splt_set_path_of_split(state, "/tmp");
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_set_int_option(state, SPLT_OPT_OUTPUT_FILENAMES, SPLT_OUTPUT_CUSTOM);
+  if (error<0) return mp3splt_err(state,error);
 
   // Set filename to split and pretend mode, for memory based splitting
-  mp3splt_set_filename_to_split(state, S->segment.filename);
-  //log_debug("filename to split set");
-  mp3splt_set_int_option(state, SPLT_OPT_PRETEND_TO_SPLIT, SPLT_TRUE);
-  mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer, (void *) S->blk);
-  //log_debug("pretend split and write function set");
+  error = mp3splt_set_filename_to_split(state, S->segment.filename);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_set_int_option(state, SPLT_OPT_PRETEND_TO_SPLIT, SPLT_TRUE);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_set_pretend_to_split_write_function(state, mp3splt_writer, (void* ) S->blk);
+  if (error<0) return mp3splt_err(state,error);
 
   // Create splitpoints
-  splt_point *point = mp3splt_point_new(begin_offset_in_hs, NULL);
-  mp3splt_point_set_type(point, SPLT_SPLITPOINT);
-  mp3splt_append_splitpoint(state, point);
+  splt_point* point = mp3splt_point_new(begin_offset_in_hs, &error);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_point_set_type(point, SPLT_SPLITPOINT);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_append_splitpoint(state, point);
+  if (error<0) return mp3splt_err(state,error);
 
-  splt_point *skip = mp3splt_point_new(end_offset_in_hs, NULL);
-  mp3splt_point_set_type(skip, SPLT_SKIPPOINT);
-  mp3splt_append_splitpoint(state, skip);
-  //log_debug("split points set");
+  splt_point* skip = mp3splt_point_new(end_offset_in_hs, &error);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_point_set_type(skip, SPLT_SKIPPOINT);
+  if (error<0) return mp3splt_err(state,error);
+  error = mp3splt_append_splitpoint(state, skip);
+  if (error<0) return mp3splt_err(state,error);
 
   // Append cuesheet tags and merge with existing
   {
     splt_tags *tags = mp3splt_tags_new(NULL);
 
-    char *title = S->segment.title;
-    char *artist = S->segment.artist;
-    char *album = S->segment.album;
-    char *performer = S->segment.album_artist;
+    const char* title = S->segment.title;
+    const char* artist = S->segment.artist;
+    const char* album = S->segment.album;
+    const char* performer = S->segment.album_artist;
     char year[20];
-    sprintf(year, "%d", S->segment.year);
-    char *comment = S->segment.comment;
-    char *genre = S->segment.genre;
+    snprintf(year, 20, "%d", S->segment.year);
+    const char* comment = S->segment.comment;
+    const char* genre = S->segment.genre;
     char track[20];
-    sprintf(track, "%d", S->segment.track);
+    snprintf(track, 20, "%d", S->segment.track);
 
-    mp3splt_read_original_tags(state);
-    //log_debug("original tags read");
+    error = mp3splt_read_original_tags(state);
+    if (error<0) return mp3splt_err(state,error);
 
-    mp3splt_tags_set(tags, SPLT_TAGS_ORIGINAL, "true", NULL);
-    //log_debug("SPLT_TAGS_ORIGINAL set");
-    mp3splt_tags_set(tags,
-         SPLT_TAGS_TITLE, title,
-         SPLT_TAGS_ARTIST, artist,
-         SPLT_TAGS_ALBUM, album,
-         SPLT_TAGS_PERFORMER, performer,
-         SPLT_TAGS_YEAR, year,
-         SPLT_TAGS_COMMENT, comment, SPLT_TAGS_GENRE, genre, SPLT_TAGS_TRACK, track, NULL);
-    //log_debug("tags set");
-    mp3splt_append_tags(state, tags);
-    //log_debug("tag appended");
+    error = mp3splt_tags_set(tags, SPLT_TAGS_ORIGINAL, "true", NULL);
+    if (error<0) return mp3splt_err(state,error);
+
+    error = mp3splt_tags_set(tags,
+               SPLT_TAGS_TITLE, title,
+               SPLT_TAGS_ARTIST, artist,
+               SPLT_TAGS_ALBUM, album,
+               SPLT_TAGS_PERFORMER, performer,
+               SPLT_TAGS_YEAR, year,
+               SPLT_TAGS_COMMENT, comment, 
+               SPLT_TAGS_GENRE, genre, 
+               SPLT_TAGS_TRACK, track, 
+               NULL);
+    if (error<0) return mp3splt_err(state,error);
+    
+    error = mp3splt_append_tags(state, tags);
+    if (error<0) return mp3splt_err(state,error);
   }
 
   // split the stuff
-  int error = SPLT_OK;
   error = mp3splt_split(state);
-  //log_debug("split done");
-  mp3splt_free_state(state);
-  //log_debug("state freeed");
-  log_debug2("mp3splt_split: result=%d", error);
+  if (error<0) return mp3splt_err(state,error);
+
+  error = mp3splt_free_state(state);
+  if (error<0) return mp3splt_err(state,error);
 
   if (error == SPLT_OK_SPLIT || error == SPLT_OK_SPLIT_EOF) {
-    mc_free(ext);
     return SEGMENTER_OK;
   } else {
-    mc_free(ext);
     return SEGMENTER_ERR_CREATE;
   }
 }
 
 /**********************************************************************/
-static int split_mp3(segmenter_t * S)
+static int split_mp3(segmenter_t* S)
 {
   int result;
 #ifdef GARD_WITH_MUTEX
@@ -175,7 +194,7 @@ static int split_mp3(segmenter_t * S)
   return result;
 }
 
-static int split_ogg(segmenter_t * S)
+static int split_ogg(segmenter_t* S)
 {
   int result;
 #ifdef GARD_WITH_MUTEX
@@ -190,9 +209,9 @@ static int split_ogg(segmenter_t * S)
 
 /**********************************************************************/
 
-segmenter_t *segmenter_new()
+segmenter_t* segmenter_new()
 {
-  segmenter_t *s = (segmenter_t *) mc_malloc(sizeof(segmenter_t));
+  segmenter_t* s = (segmenter_t* ) mc_malloc(sizeof(segmenter_t));
   s->blk = memblock_new();
   s->stream = 0;
   s->last_result = SEGMENTER_NONE;
@@ -208,20 +227,20 @@ segmenter_t *segmenter_new()
   return s;
 }
 
-int segmenter_last_result(segmenter_t * S)
+int segmenter_last_result(segmenter_t* S)
 {
   return S->last_result;
 }
 
-int segmenter_can_segment(segmenter_t * S, const char *filename)
+int segmenter_can_segment(segmenter_t* S, const char* filename)
 {
-  char *ext = getExt(filename);
+  char* ext = getExt(filename);
   int ok = (strcasecmp(ext, "mp3") == 0) || (strcasecmp(ext, "ogg") == 0);
   mc_free(ext);
   return ok;
 }
 
-void segmenter_destroy(segmenter_t * S)
+void segmenter_destroy(segmenter_t* S)
 {
   memblock_destroy(S->blk);
   S->stream = 0;
@@ -236,7 +255,7 @@ void segmenter_destroy(segmenter_t * S)
   mc_free(S);
 }
 
-int segmenter_create(segmenter_t * S)
+int segmenter_create(segmenter_t* S)
 {
   // assert that this segment isn't opened.
   int reopen=0;
@@ -245,8 +264,8 @@ int segmenter_create(segmenter_t * S)
     segmenter_close(S);
   }
 
-  char *filename = S->segment.filename;
-  char *ext = getExt(filename);
+  char* filename = S->segment.filename;
+  char* ext = getExt(filename);
   if (ext == NULL) {
     S->last_result = SEGMENTER_ERR_FILETYPE;
     return S->last_result;
@@ -267,7 +286,7 @@ int segmenter_create(segmenter_t * S)
   }
 }
 
-int segmenter_open(segmenter_t * S)
+int segmenter_open(segmenter_t* S)
 {
   if (memblock_size(S->blk) == 0) {
     S->last_result = SEGMENTER_ERR_NOSEGMENT;
@@ -284,7 +303,7 @@ int segmenter_open(segmenter_t * S)
   }
 }
 
-int segmenter_close(segmenter_t * S)
+int segmenter_close(segmenter_t* S)
 {
   if (S->stream) {
     S->stream = 0;
@@ -295,22 +314,22 @@ int segmenter_close(segmenter_t * S)
   return S->last_result;
 }
 
-int segmenter_stream(segmenter_t * S)
+int segmenter_stream(segmenter_t* S)
 {
   return S->stream;
 }
 
-void segmenter_prepare(segmenter_t * S,
-           const char *filename,
+void segmenter_prepare(segmenter_t* S,
+           const char* filename,
            int track,
-           const char *title,
-           const char *artist,
-           const char *album,
-           const char *album_artist,
-           const char *composer,
-           const char *genre, int year, const char *comment, int begin_offset_in_ms, int end_offset_in_ms)
+           const char* title,
+           const char* artist,
+           const char* album,
+           const char* album_artist,
+           const char* composer,
+           const char* genre, int year, const char* comment, int begin_offset_in_ms, int end_offset_in_ms)
 {
-  segment_t *seg = &S->segment;
+  segment_t* seg = &S->segment;
   replace(&seg->filename, filename);
   replace(&seg->title, title);
   replace(&seg->artist, artist);
@@ -325,24 +344,24 @@ void segmenter_prepare(segmenter_t * S,
   seg->track = track;
 }
 
-size_t segmenter_size(segmenter_t * S)
+size_t segmenter_size(segmenter_t* S)
 {
   return memblock_size(S->blk);
 }
 
-int segmenter_retcode(segmenter_t * S)
+int segmenter_retcode(segmenter_t* S)
 {
   return S->last_result;
 }
 
-int segmenter_read(segmenter_t *S, void *mem, size_t size) {
+int segmenter_read(segmenter_t* S, void* mem, size_t size) {
   return (int) memblock_read(S->blk, mem, size);
 }
 
-void segmenter_seek(segmenter_t *S, off_t pos) {
+void segmenter_seek(segmenter_t* S, off_t pos) {
   memblock_seek(S->blk, pos);
 }
 
-const char *segmenter_title(segmenter_t *s) {
+const char* segmenter_title(segmenter_t* s) {
   return s->segment.title;
 }

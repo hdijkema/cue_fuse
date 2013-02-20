@@ -33,6 +33,7 @@
 
 #include "cue.h"
 #include "segmenter.h"
+#include "../version.h"
 
 #include <elementals/hash.h>
 #include <elementals/log.h>
@@ -58,7 +59,7 @@ static int MAX_MEM_USAGE_IN_MB = 200;
 
 int usage(char *p)
 {
-  fprintf(stderr, "%s [--memory|m maxMB] <cue directory> <mountpoint>\n", p);
+  fprintf(stderr, "%s [--memory|m maxMB] <cue directory> <mountpoint> [fuse options]\n", p);
   return 1;
 }
 
@@ -152,16 +153,18 @@ void read_in_sizes(const char *from_file) {
           while (fgets(line, 10240, f) != NULL) {
             char *ln2 = trim(line);
             char *vfile = mc_strdup( ln2 );
-            fgets(line, 10240, f);
-            char *ln3 = trim( line );
-            size_t size = (size_t) strtoul(ln3, NULL, 10);
-            fgets(line, 10240, f);
-            char *ln4 = trim (line);
-            time_t mtime = (time_t) strtoul(ln4, NULL, 10);
-            put_size( vfile, size, mtime );
+            if (fgets(line, 10240, f) != NULL) {
+              char *ln3 = trim( line );
+              size_t size = (size_t) strtoul(ln3, NULL, 10);
+              if (fgets(line, 10240, f) != NULL) {
+                char *ln4 = trim (line);
+                time_t mtime = (time_t) strtoul(ln4, NULL, 10);
+                put_size( vfile, size, mtime );
+                mc_free( ln4 );
+              }
+              mc_free( ln3 );
+            }
             mc_free( vfile);
-            mc_free( ln4 );
-            mc_free( ln3 );
             mc_free( ln2 );
           }
         }
@@ -955,6 +958,7 @@ int main(int argc, char *argv[])
     }
   }
 
+  fprintf(stderr, "Mp3CueFuse version %d.%d\n", MP3CUEFUSE_VERSION_MAJOR, MP3CUEFUSE_VERSION_MINOR);  
   if (!_memset) {
     fprintf(stderr, "Defaulting max memory usage to 200MB\n");
   } else {
