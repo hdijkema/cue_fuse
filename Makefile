@@ -6,16 +6,18 @@ VERSION=0.2
 
 all: bin/mp3cuefuse 
 
-bin/mp3cuefuse: mp3cuefuse mp3splt_sup/lib/libpm3splt.so
+bin/mp3cuefuse: mp3cuefuse mp3splt_sup/lib/libpm3splt.so version
+	(cd src; make)
+	mkdir -p bin
+	mv src/mp3cuefuse_bin bin
+	cp mp3cuefuse bin
+
+version:
 	@echo "#ifndef __CUEFUSE_VERSION_H" >version.h
 	@echo "#define __CUEFUSE_VERSION_H" >>version.h
 	@echo "#define MP3CUEFUSE_VERSION_MAJOR 0" >>version.h
 	@echo "#define MP3CUEFUSE_VERSION_MINOR 2" >>version.h
 	@echo "#endif" >>version.h
-	(cd src; make)
-	mkdir -p bin
-	mv src/mp3cuefuse_bin bin
-	cp mp3cuefuse bin
 
 mp3splt_sup/lib/libpm3splt.so: mp3splt_sup libmp3splt/src/.libs/libmp3splt.so
 	(cd libmp3splt;make)
@@ -53,7 +55,7 @@ clean:
 distclean: clean
 	rm -rf elementals 
 
-osx: 
+osx: version
 	(cd src; make)
 	mkdir -p ${INSTALL}
 	rm -rf ${INSTALL}/Mp3CueFuse.app

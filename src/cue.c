@@ -84,7 +84,11 @@ static void mytrim_replace(char** line)
   *line = rl;
 }
 
+#ifdef MEMCHECK
 #define trim_replace(q) mytrim_replace(q),mc_take_over(*q)
+#else
+#define trim_replace(q) mytrim_replace(q)
+#endif
 
 static int eq(const char* s, const char* e)
 {
