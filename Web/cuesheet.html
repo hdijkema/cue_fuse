@@ -1,0 +1,57 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>CueFuse - Use your MP3/Cue Sheets in iTunes - a Cue Sheet
+      example</title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <style type="text/css">
+<!--
+body {
+font-family: Sans-serif;
+color: #003366;
+}
+h1, h2, h3, h4 { color: #660033; }
+h4 { font-size: 100%; font-weight: normal; }
+a:link,a:visited,a:hover,a:active {color:#336600;text-decoration: none;}
+.right {
+float:right;
+border: 1px solid #660033;
+}
+.right TD {
+border: none;
+}
+pre { color: #505050; }
+
+-->
+  </style>
+  </head>
+  <body>
+    <a href="index.html"><img alt="" src="osxfuse_512.png" style="width:
+        36px; height: 36px; float: right;" border="0" height="96"
+        width="96"></a>
+    <h1>CueFuse <small><small>- How to use it</small></small></h1>
+    <hr style="width: 100%; height: 2px;">
+    <h3>An Example CUE Sheet</h3>
+    An example CUE Sheet from my CD collection is given below. Note the
+    way
+    IMAGE, DATE and GENRE have been added to the CUE Sheet semantics.
+    MP3CueFuse understands these 'CUE Sheet' tags.<br>
+    <br>
+    In the given example I have misused the PERFORMER tag per track to
+    hold
+    the concert part. However, MP3CueFuse will negate the performer
+    field of
+    tracks. Only the TITLE fields are used. PERFORMER and TITLE of the
+    cuesheet itself are put into the '_.mp3' file as also the IMAGE,
+    DATE
+    and GENRE fields are. <br>
+    <br>
+    Note: use e.g. <a href="http://marcoschuh.de/wp/?page_id=411">EasyTag</a>
+    to add album art to your original MP3 file. The IMAGE tag is
+    understood by Mp3CueFuse, but the image it isn't added to the
+    tracks. The original album art of the MP3 file is. <br>
+    <pre>REM GENRE Classical<br>REM DATE 1985<br>REM IMAGE vierjaargetijden.jpg<br>PERFORMER "Academy of St. Martin in the Fields"<br>TITLE "The Four Seasons (Neville Marriner)"<br>FILE "Academy of St. Martin in the Fields - The Four Seasons (Neville Marriner).mp3" WAVE<br>  TRACK 01 AUDIO<br>    TITLE "I. Allegro"<br>    PERFORMER "The Four Seasons Concerto No.1 'Spring'"<br>    INDEX 01 00:00:00<br>  TRACK 02 AUDIO<br>    TITLE "II. Largo"<br>    PERFORMER "The Four Seasons Concerto No.1 'Spring'"<br>    INDEX 01 03:13:15<br>  TRACK 03 AUDIO<br>    TITLE "III. Allegro"<br>    PERFORMER "The Four Seasons Concerto No.1 'Spring'"<br>    INDEX 01 06:43:07<br>  TRACK 04 AUDIO<br>    TITLE "I. Allegro Non Molto"<br>    PERFORMER "The Four Seasons Concerto No.2 'Summer'"<br>    INDEX 01 11:24:02<br>  TRACK 05 AUDIO<br>    TITLE "II. Adagio - Presto"<br>    PERFORMER "The Four Seasons Concerto No.2 'Summer'"<br>    INDEX 01 17:40:65<br>  TRACK 06 AUDIO<br>    TITLE "III. Presto"<br>    PERFORMER "The Four Seasons Concerto No.2 'Summer'"<br>    INDEX 01 19:50:17<br>  TRACK 07 AUDIO<br>    TITLE "I. Allegro"<br>    PERFORMER "The Four Seasons Concerto No.3 'Autumn'"<br>    INDEX 01 22:43:20<br>  TRACK 08 AUDIO<br>    TITLE "II. Adagio Molto"<br>    PERFORMER "The Four Seasons Concerto No.3 'Autumn'"<br>    INDEX 01 27:43:00<br>  TRACK 09 AUDIO<br>    TITLE "III. Allegro"<br>    PERFORMER "The Four Seasons Concerto No.3 'Autumn'"<br>    INDEX 01 30:39:22<br>  TRACK 10 AUDIO<br>    TITLE "I. Allegro Non Molto"<br>    PERFORMER "The Four Seasons Concerto No.4 'Winter'"<br>    INDEX 01 34:10:67<br>  TRACK 11 AUDIO<br>    TITLE "II. Largo"<br>    PERFORMER "The Four Seasons Concerto No.4 'Winter'"<br>    INDEX 01 37:29:47<br>  TRACK 12 AUDIO<br>    TITLE "III. Allegro"<br>    PERFORMER "The Four Seasons Concerto No.4 'Winter'"<br>    INDEX 01 39:49:00<br></pre>
+    <p style="text-align: right;"><small><span style="color: rgb(0, 102,
+          0);">© 2011 Hans Oesterholt-Dijkema - GPLv2</span></small></p>
+  </body>
+</html>

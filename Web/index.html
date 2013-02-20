@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>CueFuse - Use your MP3/Cue Sheets in iTunes</title>
+    <meta http-equiv="content-type" content="text/html;
+      charset=ISO-8859-1">
+    <style type="text/css">
+  <!--
+     body { 
+	font-family: Sans-serif;
+        color: #003366;
+     }
+     h1, h2, h3, h4 { color: #660033; }
+     h4 { font-size: 100%; font-weight: normal; }
+     a:link,a:visited,a:hover,a:active {color:#336600;text-decoration: none;} 
+     .right { 
+	float:right; 
+	border: 1px solid #660033;
+     }
+     .right TD {
+	border: none;
+     }
+
+  -->
+  </style>
+  </head>
+  <body>
+    <h1>CueFuse <small><small>Make your mp3/cue sheets files available
+          to iTunes</small></small></h1>
+    <hr style="width: 100%; height: 2px;">
+    <table style="text-align: left; width: 278px; height: 243px;"
+      class="right" border="1" cellpadding="2" cellspacing="2">
+      <tbody>
+        <tr>
+          <td style="vertical-align: top;">
+            <p style="float: right; text-align: right;"><img
+                style="border: medium none ; width: 70px; height: 92px;"
+                alt="Mac" src="mac.jpg"><br>
+              &nbsp;<br>
+              <a
+                href="http://sourceforge.net/donate/index.php?group_id=506956"><img
+src="http://images.sourceforge.net/images/project-support.jpg"
+                  alt="Support This Project" border="0" height="32"
+                  width="88"></a><br>
+              <br>
+              <br>
+            </p>
+            <h4>CueFuse version 0.1</h4>
+            <ul>
+              <li><a href="install.html">Installing</a><br>
+              </li>
+              <li><a
+                  href="https://sourceforge.net/projects/cuefuse/files/">Download<br>
+                  <br>
+                </a></li>
+              <li><a href="http://sourceforge.net/projects/cuefuse/">Project
+
+
+                  page (sf)<br>
+                </a></li>
+              <li><a href="http://hoesterholt.github.com/cue_fuse/">Page
+                  on GitHub</a></li>
+              <li><a href="https://github.com/hoesterholt/cue_fuse">Project
+                  page on GitHub</a></li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <img style="width: 128px; height: 128px; float: left;" alt="CUE Fuse
+      Logo" src="osxfuse_512.png" height="120" width="120">A long time
+    ago I ripped my entire CD collection to a bunch of mp3 files. I
+    wanted to listen to my music on my laptop.&nbsp; However, I've got a
+    lot of classical music and as I didn't want the annoying MP3 Gap
+    during a track change while listing to e.g. a Mahler symphony, I
+    decided to rip each CD to 1 single mp3 file, accompanies by a <a
+      href="http://en.wikipedia.org/wiki/Cue_sheet_%28computing%29">CUE
+      Sheet</a>. <br>
+    <br>
+    I could have choosen to rip my CDs to a bunch of FLAC files, but
+    FLAC format just takes too much space for me. So I choose a good
+    quality mp3.<br>
+    <br>
+    This works great with software like <a
+      href="http://www.foobar2000.org/">FooBar2000</a> on Windows. It
+    didn't work that well on Linux, but these days, <a
+      href="http://www.clementine-player.org/">Clementine</a> does have
+    support for cuesheets. <br>
+    <br>
+    However, I've also got a <a href="http://www.apple.com">Mac</a>.
+    It's a really nice machine, and it comes with iTunes. iTunes is a
+    great product, but it just can't handle CUE Sheets.&nbsp; Here's
+    where <span style="font-weight: bold;">Mp3CueFuse</span> comes in.
+    <b>Mp3CueFuse</b> uses <a href="http://osxfuse.github.com/">OSXFuse</a>
+    to make the MP3 + CUE Sheets available as a <b>read only</b> file
+    system with .MP3 tracks! It presents CUE Sheet as directories and
+    presents the tracks in the CUE Sheets as .MP3 files. Under the hood,
+    it splits your mp3 files on the fly to mp3 tracks. The nice thing
+    about it, is that iTunes analyses your tracks and provides gapless
+    playback again. Now you can keep your cuesheet driven files and
+    still play them on your mac. It you use e.g. <a
+      href="http://marcoschuh.de/wp/?page_id=411">EasyTag</a> to add
+    cover art to the original tracks, iTunes will import that too! This
+    is the ideal situation to have your (classical or liveset) mp3 files
+    playback gapless on Linux, Windows and Mac OSX and also be able to
+    synchronize your tracks with all the iPod devices your children
+    have. <br>
+    <br>
+    Now everyone can import their MP3/CUE Sheets as .MP3 files in
+    iTunes.&nbsp; It works great and provides seamless gapless playback.
+    One thing to be aware of:<span style="font-style: italic;"> You may
+      not want iTunes to copy the .MP3 files to the library.</span> So
+    you need to tell iTunes not to copy imported files to the Music
+    collection. Otherwise, you'll loose a lot of disk space to double
+    .MP3 tracks.<br>
+    <h3>Installation</h3>
+    <a href="http://hoesterholt.github.com/cue_fuse">For installation
+      details</a>, see <a href="http://hoesterholt.github.com/cue_fuse">this
+
+
+      page on GitHub</a>. Please note that this is <b>BETA</b>
+    software. If your cuesheets are erroneous or there is a problem
+    reading a file, the file system provider may crash. You then need to
+    analyse what file is causing the trouble, fix this problem (tell me
+    about it, so that I can make this software more robust) and remount
+    the fuse filesystem using the application from the application menu.<br>
+    <br>
+    <p><br>
+    </p>
+  </body>
+</html>
