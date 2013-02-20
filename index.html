@@ -38,7 +38,7 @@
 <h3>Downloading</h3>
 
 <ul>
-<li><a href="https://sourceforge.net/projects/cuefuse/files/">Mp3CueFuse version 0.1</a></li>
+<li><a href="https://sourceforge.net/projects/cuefuse/files/">Mp3CueFuse version 0.2</a></li>
 </ul><h3>Installation on OSX</h3>
 
 <h4>Step 1 - Make sure OSX Fuse is installed</h4>
@@ -56,6 +56,38 @@
 <p><img src="http://i.imgur.com/J58bEuA.png?1" alt="Closing the DMG again"></p>
 
 <h4>Step 4 - Start the application</h4>
+
+<p>It will run a simple setup procedure, with which you can configure you Mp3CueFuse source directory. With this source directory, the mountpoint ~/CueMusicTracks is setup. Let's have a look. Step one just tells you what's going to happen.</p>
+
+<p><img src="http://i.imgur.com/QaZFEgc.png" alt="Step 1"></p>
+
+<p>Step two, let's you select your source directory. The directory where your cuesheet driven music collection is:</p>
+
+<p><img src="http://i.imgur.com/cvOT3NJ.png" alt="Selecting the source directory"></p>
+
+<p>The last step tells you that the tracks in source directory can be found in your home directory:</p>
+
+<p><img src="http://i.imgur.com/0juGxwH.png" alt="Step 3"></p>
+
+<h3>Step 5 - Look at the newly created mountpoint.</h3>
+
+<p>Let's have a look at what just happened. You now have read only music tracks. You can't edit them; edit the original files instead if you want to change anything. So this is what we saw before starting the application:</p>
+
+<p><img src="http://i.imgur.com/7rvkoly.png" alt="before"></p>
+
+<p>And now, we can browse to a "directory" with tracks. This is what you see after running Mp3CueFuse. See the mountpoint (CueMusicTracks)?</p>
+
+<p><img src="http://i.imgur.com/w6neP7g.png" alt="After"></p>
+
+<p>Let's see how the tracks look. Note these tracks have album art in it, because we added album art with <a href="http://marcoschuh.de/wp/?page_id=411">EasyTag</a> to the <em>original</em> mp3 files in the Music/CueMuziek directory.</p>
+
+<p><img src="http://i.imgur.com/43C1V89.png" alt="Tracks in finder"></p>
+
+<p>This is the result after importing them into iTunes. Note. I prevent iTunes from putting the tracks in the local iTunes library.</p>
+
+<p><img src="http://i.imgur.com/W1fyBLn.png" alt="Tracks added to iTunes"></p>
+
+<p>Well, that's all there's to it. Note. This software is <em>beta</em> quality. So, you can expect problems. If so, please post an issue. (large) logs can be found in /tmp/mp3cue.log.</p>
       </section>
     </div>
 
