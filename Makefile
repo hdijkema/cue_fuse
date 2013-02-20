@@ -48,6 +48,7 @@ clean:
 	(cd src;make clean)
 	if [ -d libmp3splt ]; then cd libmp3splt; make clean;rm -f config.status; fi
 	rm -rf mp3splt_sup
+	rm -f version.h
 
 distclean: clean
 	rm -rf elementals 
