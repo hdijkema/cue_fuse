@@ -52,12 +52,12 @@
 
 /***********************************************************************/
 
-static char *BASEDIR;
+static char* BASEDIR;
 static int MAX_MEM_USAGE_IN_MB = 200;
 
 /***********************************************************************/
 
-int usage(char *p)
+int usage(char* p)
 {
   fprintf(stderr, "%s [--memory|m maxMB] <cue directory> <mountpoint> [fuse options]\n", p);
   return 1;
@@ -65,11 +65,11 @@ int usage(char *p)
 
 /***********************************************************************/
 
-static char *trim(const char *line)
+static char* trim(const char* line)
 {
   int i, j;
   for (i = 0; line[i] != '\0' && isspace(line[i]); i++) ;
-  char *k = mc_strdup(&line[i]);
+  char* k = mc_strdup(&line[i]);
   for (j = strlen(k) - 1; j >= 0 && isspace(k[j]); j--) ;
   if (j >= 0) {
     k[j + 1] = '\0';
@@ -102,7 +102,7 @@ IMPLEMENT_HASH(vfilesize_hash, vfile_size_t, vfile_size_copy, vfile_size_destroy
 
 static vfilesize_hash *SIZE_HASH = NULL;
 
-void put_size(const char *vfile, size_t size, time_t mtime) {
+void put_size(const char* vfile, size_t size, time_t mtime) {
   vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfile);
   if (e!=NULL) {
     if (e->mtime != mtime) {
@@ -115,7 +115,7 @@ void put_size(const char *vfile, size_t size, time_t mtime) {
   }
 }
 
-int has_size(const char *vfile, time_t mtime) {
+int has_size(const char* vfile, time_t mtime) {
   vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfile);
   if (e != NULL && e->mtime == mtime) {
     return 1;
@@ -124,7 +124,7 @@ int has_size(const char *vfile, time_t mtime) {
   }
 }
 
-size_t get_size(const char *vfile) {
+size_t get_size(const char* vfile) {
   vfile_size_t *e = vfilesize_hash_get(SIZE_HASH, vfile);
   if (e != NULL) {
     return e->size;
@@ -136,28 +136,28 @@ size_t get_size(const char *vfile) {
 #define VFILESIZE_FILE_TYPE     "type:mp3cuefuse-size-cache"
 #define VFILESIZE_FILE_VERSION  "version:1"
 
-void read_in_sizes(const char *from_file) {
+void read_in_sizes(const char* from_file) {
 
   FILE *f = fopen(from_file, "rt");
   if (f==NULL) {
     return;
   }
 
-  char *line = (char *) mc_malloc(10240*sizeof(char));
+  char* line = (char* ) mc_malloc(10240*sizeof(char));
   if (fgets(line, 10240, f) != NULL) {
-    char *ln = trim(line);
+    char* ln = trim(line);
     if (strcmp(ln, VFILESIZE_FILE_TYPE) == 0) {
       if (fgets(line, 10240, f) != NULL) {
-        char *ln1 = trim(line);
+        char* ln1 = trim(line);
         if (strcmp(ln1, VFILESIZE_FILE_VERSION) == 0) {
           while (fgets(line, 10240, f) != NULL) {
-            char *ln2 = trim(line);
-            char *vfile = mc_strdup( ln2 );
+            char* ln2 = trim(line);
+            char* vfile = mc_strdup( ln2 );
             if (fgets(line, 10240, f) != NULL) {
-              char *ln3 = trim( line );
+              char* ln3 = trim( line );
               size_t size = (size_t) strtoul(ln3, NULL, 10);
               if (fgets(line, 10240, f) != NULL) {
-                char *ln4 = trim (line);
+                char* ln4 = trim (line);
                 time_t mtime = (time_t) strtoul(ln4, NULL, 10);
                 put_size( vfile, size, mtime );
                 mc_free( ln4 );
@@ -177,7 +177,7 @@ void read_in_sizes(const char *from_file) {
   fclose(f);
 }
 
-void write_sizes(const char * to_file) {
+void write_sizes(const char*  to_file) {
   FILE *f = fopen(to_file, "wt");
   fputs(VFILESIZE_FILE_TYPE /**/ "\n", f);
   fputs(VFILESIZE_FILE_VERSION /**/ "\n", f);
@@ -199,7 +199,7 @@ void write_sizes(const char * to_file) {
 /***********************************************************************/
 
 typedef struct {
-  char *id;
+  char* id;
   segmenter_t *segment;
 } seg_entry_t;
 
@@ -285,7 +285,7 @@ void add_seg_entry(cue_entry_t * e, segmenter_t * s)
 
 segmenter_t *find_seg_entry(cue_entry_t * e)
 {
-  char *id = cue_entry_alloc_id(e);
+  char* id = cue_entry_alloc_id(e);
   seglist_lock(SEGMENT_LIST);
   seg_entry_t *se = seglist_start_iter(SEGMENT_LIST, LIST_FIRST);
   while (se != NULL && strcmp(se->id, id) != 0) {
@@ -317,12 +317,12 @@ void leave_de_monitor() {
 
 typedef struct {
   cue_entry_t *entry;
-  char *path;
+  char* path;
   struct stat *st;
   int open_count;
 } data_entry_t;
 
-static data_entry_t *mydata_entry_new(const char *path, cue_entry_t * entry, struct stat *st)
+static data_entry_t *mydata_entry_new(const char* path, cue_entry_t * entry, struct stat *st)
 {
   data_entry_t *e = (data_entry_t *) mc_malloc(sizeof(data_entry_t));
   e->path = mc_strdup(path);
@@ -370,10 +370,22 @@ datahash *DATA = NULL;
 
 /***********************************************************************/
 
-char *mymake_path(const char *path)
+char* basename(const char* path) 
+{
+  int l = strlen(path);
+  int i;
+  for(i=l-1;i >= 0 && path[i] != '/';--i);
+  if (i < 0) {
+    return mc_strdup(path);
+  } else {
+    return mc_strdup(&path[i+1]);
+  }
+}
+
+char* mymake_path(const char* path)
 {
   int l = strlen(path) + strlen(BASEDIR) + 1;
-  char *np = (char *)mc_malloc(l);
+  char* np = (char* )mc_malloc(l);
   fprintf(stderr, "np=%p\n", np);
   if (np == NULL) {
     return np;
@@ -388,11 +400,11 @@ char *mymake_path(const char *path)
 
 #define make_path(p) mc_take_over(mymake_path(p))
 
-char *make_rel_path2(const char *path, const char *file)
+char* make_rel_path2(const char* path, const char* file)
 {
   int pl = strlen(path);
   int l = strlen(path) + strlen("/") + strlen(file) + 1;
-  char *fp = (char *)mc_malloc(l);
+  char* fp = (char* )mc_malloc(l);
   if (fp == NULL) {
     return NULL;
   } else {
@@ -407,19 +419,19 @@ char *make_rel_path2(const char *path, const char *file)
   }
 }
 
-char *make_path2(const char *path, const char *file)
+char* make_path2(const char* path, const char* file)
 {
-  char *np = make_path(path);
+  char* np = make_path(path);
   if (np == NULL) {
     return np;
   } else {
-    char *r = make_rel_path2(np, file);
+    char* r = make_rel_path2(np, file);
     mc_free(np);
     return r;
   }
 }
 
-static int isExt(const char *path, const char *ext)
+static int isExt(const char* path, const char* ext)
 {
   int l = strlen(ext);
   int pl = strlen(path);
@@ -434,20 +446,20 @@ static int isExt(const char *path, const char *ext)
   }
 }
 
-static int isCue(const char *path)
+static int isCue(const char* path)
 {
   return isExt(path, ".cue");
 }
 
-static int isImage(const char *path)
+static int isImage(const char* path)
 {
   return isExt(path, ".jpg") || isExt(path, ".jpeg")
       || isExt(path, ".png");
 }
 
-static char *stripExt(const char *_path, const char *ext)
+static char* stripExt(const char* _path, const char* ext)
 {
-  char *path = mc_strdup(_path);
+  char* path = mc_strdup(_path);
   if (path == NULL) {
     return NULL;
   } else if (isExt(path, ext)) {
@@ -459,10 +471,10 @@ static char *stripExt(const char *_path, const char *ext)
   return path;
 }
 
-static char *isCueFile(const char *full_path)
+static char* isCueFile(const char* full_path)
 {
-  char *fp = (char *)mc_malloc(strlen(full_path) + strlen(".cue") + 1);
-  char *cues[] = { ".cue", ".Cue", ".cUe", ".cuE", ".CUe", ".CuE", ".cUE", ".CUE",
+  char* fp = (char* )mc_malloc(strlen(full_path) + strlen(".cue") + 1);
+  char* cues[] = { ".cue", ".Cue", ".cUe", ".cuE", ".CUe", ".CuE", ".cUE", ".CUE",
     NULL
   };
   int i;
@@ -481,8 +493,8 @@ static char *isCueFile(const char *full_path)
   return NULL;
 }
 
-static char *getCueFileForTrack(const char *full_path_of_track, int with_ext) {
-  char *fp = (char *)mc_malloc(strlen(full_path_of_track) + strlen(".cue") + 1);
+static char* getCueFileForTrack(const char* full_path_of_track, int with_ext) {
+  char* fp = (char* )mc_malloc(strlen(full_path_of_track) + strlen(".cue") + 1);
   strcpy(fp, full_path_of_track);
   int i,N;
   for(N = strlen(fp), i = N-1; i >= 0 && fp[i] != '/'; --i);
@@ -511,7 +523,7 @@ static segmenter_t *get_segment(cue_entry_t * e, int update)
   } else {
     cue_t *sheet = cue_entry_sheet(e);
     segmenter_t *s = segmenter_new();
-    const char *fullpath = cue_audio_file(sheet);
+    const char* fullpath = cue_audio_file(sheet);
     int year = atoi(cue_entry_year(e));
     segmenter_prepare(s,
           fullpath,
@@ -546,12 +558,13 @@ static void delist_destroy_entry(list_data_t e)
 DECLARE_LIST(delist, data_entry_t);
 IMPLEMENT_LIST(delist, data_entry_t, delist_copy, delist_destroy_entry);
 
-static cue_t *mp3cue_readcue_in_hash(const char *path, int update_data)
+static cue_t *mp3cue_readcue_in_hash(const char* path, int update_data)
 {
-  char *fullpath = make_path(path);
-  char *cuefile = isCueFile(fullpath);
+  char* fullpath = make_path(path);
+  char* cuefile = isCueFile(fullpath);
   log_debug3("reading cuefile %s for %s", cuefile, fullpath);
   cue_t *cue = (cue_t *) mc_take_over(cue_new(cuefile));
+  log_debug3("cue: %s, %d", cue_audio_file(cue), cue_count(cue));
   struct stat st;
   stat(cuefile, &st);
   MK_READONLY(st);
@@ -562,7 +575,7 @@ static cue_t *mp3cue_readcue_in_hash(const char *path, int update_data)
     // check if cue already exists in hash. If not, create whole cue in hash and read in again.
     for (i = 0, N = cue_count(cue); i < N; i++) {
       cue_entry_t *entry = cue_entry(cue, i);
-      char *p = make_path2(path, cue_entry_vfile(entry));
+      char* p = make_path2(path, cue_entry_vfile(entry));
 
       log_debug2("p=%s", p);
       if (datahash_exists(DATA, p)) {
@@ -605,13 +618,13 @@ static cue_t *mp3cue_readcue_in_hash(const char *path, int update_data)
   return cue;
 }
 
-static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
+static int mp3cue_readcue(const char* path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
   log_debug2("enter with %s", path);
   cue_t *cue = mp3cue_readcue_in_hash(path, false);
 
-  char *fullpath = make_path(path);
-  char *cuefile = isCueFile(fullpath);
+  char* fullpath = make_path(path);
+  char* cuefile = isCueFile(fullpath);
 
   struct stat st;
   stat(cuefile, &st);
@@ -641,11 +654,20 @@ static int mp3cue_readcue(const char *path, void *buf, fuse_fill_dir_t filler, o
  File system operations. Here we use the DE_MONITOR. Nowhere else!
 */
 
-static int mp3cue_getattr(const char *path, struct stat *stbuf)
+static int mp3cue_getattr(const char* path, struct stat *stbuf)
 {
   log_debug2("mp3cue_getattr %s", path);
-  char *fullpath = make_path(path);
-  char *cue = isCueFile(fullpath);
+  
+  // This may seem strange, but with OSXFuse, this function gets
+  // somehow called even if mp3cue_readdir doesn't return these files.
+  // We don't want to see hidden files, so we return EACCES. 
+  char *bn = basename(path);
+  if (bn[0] == '.') {
+    return EACCES;
+  }
+  
+  char* fullpath = make_path(path);
+  char* cue = isCueFile(fullpath);
 
   if (cue != NULL) {
     log_debug2("mp3cue_getattr cue=%s", cue);
@@ -673,7 +695,7 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
         // reread the cue.
         {
           log_debug2("cuefile for %s",fullpath);
-          char *cue = getCueFileForTrack(fullpath, true);
+          char* cue = getCueFileForTrack(fullpath, true);
           struct stat st;
           int ret = stat(cue, &st);
           log_debug4("stat cuefile %s, mtime=%d, registered:%d",
@@ -683,7 +705,7 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
                       );
           mc_free(cue);
           if (st.st_mtime != d->st->st_mtime) {
-            char *cpath = getCueFileForTrack(path, false);
+            char* cpath = getCueFileForTrack(path, false);
             mp3cue_readcue_in_hash(cpath, true); // replace cue in hash
             mc_free(cpath);
           }
@@ -713,16 +735,16 @@ static int mp3cue_getattr(const char *path, struct stat *stbuf)
   }
 }
 
-static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
+static int mp3cue_readdir(const char* path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
   log_debug2("mp3cue_readdir %s", path);
 
-  char *fullpath = make_path(path);
+  char* fullpath = make_path(path);
   if (fullpath == NULL) {
     return ENOMEM;
   }
 
-  char *cue = isCueFile(fullpath);
+  char* cue = isCueFile(fullpath);
   if (cue != NULL) {
     log_debug2("mp3cue_readdir iscuefile %s", cue);
     mc_free(cue);
@@ -742,9 +764,9 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
   } else {
     struct dirent *de;
     while ((de = readdir(dh)) != NULL) {
-      //log_debug2("d_name=%s",de->d_name);
+      log_debug2("d_name=%s",de->d_name);
       if (de->d_name[0] != '.') {
-        char *pf = make_path2(path, de->d_name);
+        char* pf = make_path2(path, de->d_name);
         log_debug2("pf=%s", pf);
         struct stat st;
         if (pf == NULL) {
@@ -756,7 +778,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
           switch (st.st_mode & S_IFMT) {
           case S_IFREG:{
               if (isCue(pf)) {
-                char *dr = stripExt(de->d_name, ".cue");
+                char* dr = stripExt(de->d_name, ".cue");
                 if (dr == NULL) {
                   closedir(dh);
                   return ENOMEM;
@@ -770,10 +792,7 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
               break;
             }
           case S_IFDIR:{
-              //char *dr=make_rel_path2(path,de->d_name);
-              //if (dr==NULL) { return ENOMEM; }
               filler(buf, de->d_name, &st, 0);
-              //mc_free(dr);
               break;
             }
           default:
@@ -792,11 +811,11 @@ static int mp3cue_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
   return 0;
 }
 
-static int mp3cue_open(const char *path, struct fuse_file_info *fi)
+static int mp3cue_open(const char* path, struct fuse_file_info *fi)
 {
   log_debug2("mp3cue_open %s", path);
-  char *fullpath = make_path(path);
-  char *cue = isCueFile(fullpath);
+  char* fullpath = make_path(path);
+  char* cue = isCueFile(fullpath);
   if (cue != NULL) {
     int ret = -EISDIR;
     fi->fh = 0;
@@ -837,13 +856,13 @@ static int mp3cue_open(const char *path, struct fuse_file_info *fi)
   }
 }
 
-static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+static int mp3cue_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
   log_debug4("mp3cue_read %s %d %d", path, (int)size, (int)offset);
   if (fi->fh == 0) {
     return -EIO;
   } else {
-    char *fullpath = make_path(path);
+    char* fullpath = make_path(path);
     data_entry_t *d = datahash_get(DATA, fullpath);
     mc_free(fullpath);
     log_debug2("found d=%p", d);
@@ -864,13 +883,13 @@ static int mp3cue_read(const char *path, char *buf, size_t size, off_t offset, s
   }
 }
 
-static int mp3cue_release(const char *path, struct fuse_file_info *fi)
+static int mp3cue_release(const char* path, struct fuse_file_info *fi)
 {
   log_debug2("mp3cue_release %s", path);
   if (fi->fh == 0) {
     return -EIO;
   } else {
-    char *fullpath = make_path(path);
+    char* fullpath = make_path(path);
     data_entry_t *d = datahash_get(DATA, fullpath);
     if (d != NULL) {
       log_debug3("found d=%p, count=%d", d, d->open_count);
@@ -921,7 +940,7 @@ inline extern int log_this_severity(int severity)
 
 /***********************************************************************/
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
   // Initialize
   mc_init();
@@ -931,7 +950,7 @@ int main(int argc, char *argv[])
   SIZE_HASH = vfilesize_hash_new(100, HASH_CASE_SENSITIVE);
 
   // Read in current sizes
-  char *home=getenv("HOME");
+  char* home=getenv("HOME");
   char cfgfile[1024];
   snprintf(cfgfile,1024-1,"%s/.mp3cuefuse",home);
   read_in_sizes(cfgfile);
@@ -948,7 +967,7 @@ int main(int argc, char *argv[])
   int _memset = 0;
   if (c >= 0) {
     if (c == 'm') {
-      char *memory = optarg;
+      char* memory = optarg;
       MAX_MEM_USAGE_IN_MB = atoi(memory);
       if (MAX_MEM_USAGE_IN_MB < 30) {
         fprintf(stderr, "Defaulting max memory usage to minimum of 30MB\n");
@@ -971,7 +990,7 @@ int main(int argc, char *argv[])
     BASEDIR = mc_strdup(argv[optind++]);
     if (optind < argc) {
       int fargc;
-      char **fargv = (char **)mc_malloc(sizeof(char *) * (argc - optind + 2));
+      char* *fargv = (char* *)mc_malloc(sizeof(char* ) * (argc - optind + 2));
       int k = 1;
       fargv[0] = argv[0];
       while (optind < argc) {

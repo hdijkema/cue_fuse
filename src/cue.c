@@ -93,7 +93,14 @@ static void mytrim_replace(char** line)
 static int eq(const char* s, const char* e)
 {
   char* r = trim(s);
-  if (strncasecmp(r, e, strlen(e)) == 0) {
+  
+  int lr = strlen(r);
+  int le = strlen(e);
+  
+  if (lr < le) 
+    return 0;
+  
+  if (strncasecmp(r, e, le) == 0) {
     mc_free(r);
     return 1;
   } else {
@@ -121,7 +128,6 @@ static char* myunquote(const char* s, const char* e)
     char* k = mystrdup(p);
     trim_replace(&k);
     mc_free(r);
-    log_debug2("k=%s", k);
     return k;
   }
 }
@@ -242,6 +248,7 @@ cue_t* cue_new(const char* file)
     char* year = NULL;
     cue_entry_t* entry = NULL;
     int in_tracks = 0;
+    
     while ((line = readline(f)) != NULL) {
       trim_replace(&line);
       if (strcmp(line, "") != 0) {
@@ -302,12 +309,13 @@ cue_t* cue_new(const char* file)
             }
           } else if (eq(line, "track")) {
             in_tracks = 1;
+          } else {
+            log_debug2("Skipping line '%s'", line);
           }
         }
 
         if (in_tracks) {
           if (eq(line, "track")) {
-            log_debug2("track: entry=%p", entry);
             if (entry != NULL) {
               addEntry(r, entry);
             }
@@ -317,7 +325,6 @@ cue_t* cue_new(const char* file)
             entry->performer = mystrdup(r->album_performer);
             entry->composer = mystrdup(r->album_composer);
             entry->piece = NULL;
-            log_debug2("track: created new entry %p", entry);
           } else if (eq(line, "title")) {
             mc_free(entry->title);
             entry->title = unquote(line, "title");
@@ -346,25 +353,27 @@ cue_t* cue_new(const char* file)
       }
       mc_free(line);
     }
+    
     if (entry != NULL) {
       addEntry(r, entry);
     }
+    
     mc_free(year);
     mc_free(image);
 
-
-    {
+    if (r->count > 0) {
       int i, N;
-      for (i = 0, N = r->count; i < N - 1; i++) {
+      for (i = 0, N = r->count-1; i < N; i++) {
         r->entries[i]->end_offset_in_ms = r->entries[i + 1]->begin_offset_in_ms;
         r->entries[i]->tracknr = i + 1;
       }
       r->entries[i]->tracknr = i + 1;
     }
-
+    
     fclose(f);
+    
   }
-
+  
   return r;
 }
 
