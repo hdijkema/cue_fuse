@@ -2,7 +2,9 @@
 PWD=$(shell pwd)
 PREFIX=/usr/local
 INSTALL=/tmp/mp3cuefuse
-VERSION=0.21
+MAJOR=0
+MINOR=21
+VERSION=${MAJOR}.${MINOR}
 
 all: bin/mp3cuefuse 
 
@@ -15,8 +17,8 @@ bin/mp3cuefuse: mp3cuefuse mp3splt_sup/lib/libpm3splt.so version
 version:
 	@echo "#ifndef __CUEFUSE_VERSION_H" >version.h
 	@echo "#define __CUEFUSE_VERSION_H" >>version.h
-	@echo "#define MP3CUEFUSE_VERSION_MAJOR 0" >>version.h
-	@echo "#define MP3CUEFUSE_VERSION_MINOR 2" >>version.h
+	@echo "#define MP3CUEFUSE_VERSION_MAJOR ${MAJOR}" >>version.h
+	@echo "#define MP3CUEFUSE_VERSION_MINOR ${MINOR}" >>version.h
 	@echo "#endif" >>version.h
 
 mp3splt_sup/lib/libpm3splt.so: mp3splt_sup libmp3splt/src/.libs/libmp3splt.so
