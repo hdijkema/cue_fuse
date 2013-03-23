@@ -33,6 +33,7 @@ typedef struct {
   char *year;
   char *composer;
   char *piece;
+  char *audio_file;
   int tracknr;
   int begin_offset_in_ms;
   int end_offset_in_ms;
@@ -43,11 +44,11 @@ typedef struct {
 
 typedef struct {
   int _errno;
-  char *audio_file;
   char *album_title;
   char *album_performer;
   char *album_composer;
   char *genre;
+  char *image_file;
   char *cuefile;
   int count;
   cue_entry_t **entries;
@@ -70,6 +71,7 @@ const char *cue_album_performer(cue_t * cue);
 const char *cue_album_composer(cue_t * cue);
 const char *cue_audio_file(cue_t * cue);
 const char *cue_genre(cue_t * cue);
+const char *cue_image_file(cue_t* cue);
 
 int cue_entries(cue_t * cue);
 cue_entry_t *cue_entry(cue_t * cue, int index);
@@ -82,6 +84,7 @@ const char *cue_entry_performer(cue_entry_t * ce);
 const char *cue_entry_composer(cue_entry_t * ce);
 const char *cue_entry_piece(cue_entry_t * ce);
 const char *cue_entry_year(cue_entry_t * ce);
+const char *cue_entry_audio_file(cue_entry_t* ce);
 int cue_entry_tracknr(cue_entry_t * ce);
 int cue_entry_begin_offset_in_ms(cue_entry_t * ce);
 int cue_entry_end_offset_in_ms(cue_entry_t * ce);

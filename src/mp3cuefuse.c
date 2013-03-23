@@ -523,7 +523,7 @@ static segmenter_t *get_segment(cue_entry_t * e, int update)
   } else {
     cue_t *sheet = cue_entry_sheet(e);
     segmenter_t *s = segmenter_new();
-    const char* fullpath = cue_audio_file(sheet);
+    const char* fullpath = cue_entry_audio_file(e); //cue_audio_file(sheet);
     int year = atoi(cue_entry_year(e));
     segmenter_prepare(s,
           fullpath,
@@ -721,7 +721,7 @@ static int mp3cue_getattr(const char* path, struct stat *stbuf)
           put_size(fullpath, d->st->st_size, d->st->st_mtime);
         }
         log_debug3("for filename %s, size=%d",
-             cue_audio_file(cue_entry_sheet(d->entry)), (int) d->st->st_size);
+             cue_entry_audio_file(d->entry), (int) d->st->st_size);
         memcpy(stbuf, d->st, sizeof(struct stat));
         mc_free(fullpath);
       ); // end monitor
@@ -931,7 +931,7 @@ extern FILE *log_handle()
   return log;
 }
 
-inline extern int log_this_severity(int severity)
+extern int log_this_severity(int severity)
 {
   //int retval = (severity > LOG_DEBUG);
   int retval=1;
