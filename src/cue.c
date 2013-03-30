@@ -103,8 +103,8 @@ static int eq(const char* s, const char* e)
     return 0;
   }
   
-  log_debug6("%-15s %s, %d, %d %d", r, e, lr, le, strncasecmp(r, e, le));
-  log_debug3("%d, %d", r[0], e[0]);
+  //log_debug6("%-15s %s, %d, %d %d", r, e, lr, le, strncasecmp(r, e, le));
+  //log_debug3("%d, %d", r[0], e[0]);
   
   if (strncasecmp(r, e, le) == 0) {
     mc_free(r);
@@ -599,7 +599,7 @@ char* cue_entry_alloc_id(cue_entry_t* ce)
   int l = strlen(cue_entry_vfile(ce)) + strlen(cue_audio_file(cue_entry_sheet(ce))) + 1;
   char* s = (char* )mc_malloc(l);
   strcpy(s, cue_entry_vfile(ce));
-  strcat(s, cue_audio_file(cue_entry_sheet(ce)));
+  strcat(s, cue_entry_audio_file(ce));
   return s;
 }
 

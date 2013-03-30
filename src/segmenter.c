@@ -184,13 +184,15 @@ static int mp3splt(segmenter_t* S)
 static int split_mp3(segmenter_t* S)
 {
   int result;
+  log_debug("split begin");
 #ifdef GARD_WITH_MUTEX
   pthread_mutex_lock(&mutex);
 #endif
   result = mp3splt(S);
 #ifdef GARD_WITH_MUTEX
   pthread_mutex_unlock(&mutex);
-#endif
+#endif 
+  log_debug("split done");
   return result;
 }
 

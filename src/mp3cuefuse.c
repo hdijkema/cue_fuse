@@ -524,7 +524,9 @@ static segmenter_t *get_segment(cue_entry_t * e, int update)
     cue_t *sheet = cue_entry_sheet(e);
     segmenter_t *s = segmenter_new();
     const char* fullpath = cue_entry_audio_file(e); //cue_audio_file(sheet);
+    log_debug2("fullpath = %s", fullpath);
     int year = atoi(cue_entry_year(e));
+    log_debug("prepare");
     segmenter_prepare(s,
           fullpath,
           cue_entry_tracknr(e),
@@ -537,8 +539,11 @@ static segmenter_t *get_segment(cue_entry_t * e, int update)
           year,
           cue_entry_piece(e), cue_entry_begin_offset_in_ms(e), cue_entry_end_offset_in_ms(e)
         );
+    log_debug("create");
     segmenter_create(s);
+    log_debug("add");
     add_seg_entry(e, s);
+    log_debug("return s");
     return s;
   }
 }
