@@ -596,10 +596,10 @@ const char* cue_entry_vfile(cue_entry_t* ce)
 
 char* cue_entry_alloc_id(cue_entry_t* ce)
 {
-  int l = strlen(cue_entry_vfile(ce)) + strlen(cue_audio_file(cue_entry_sheet(ce))) + 1;
+  int l = strlen(cue_entry_vfile(ce)) + strlen(cue_entry_audio_file(ce)) + 1;
   char* s = (char* )mc_malloc(l);
   strcpy(s, cue_entry_vfile(ce));
-  strcat(s, cue_entry_audio_file(ce));
+  strcat(s, cue_entry_audio_file(ce));;
   return s;
 }
 
