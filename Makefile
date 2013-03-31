@@ -3,7 +3,7 @@ PWD=$(shell pwd)
 PREFIX=/usr/local
 INSTALL=/tmp/mp3cuefuse
 MAJOR=0
-MINOR=21
+MINOR=23
 VERSION=${MAJOR}.${MINOR}
 
 all: bin/mp3cuefuse 
